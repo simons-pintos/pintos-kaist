@@ -7,7 +7,6 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include "thread.c"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -95,7 +94,7 @@ timer_elapsed(int64_t then)
 void timer_sleep(int64_t ticks)
 {
 	int64_t start = timer_ticks();
-	thread_sleep(ticks); // ticks에 대해 확실하지 않으므로, 다시 볼 것
+	thread_sleep(start + ticks); // ticks에 대해 확실하지 않으므로, 다시 볼 것
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -128,8 +127,8 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	thread_tick();
-
-	if (get_next_tick_to_awake() <= ticks)
+	int64_t next_tick = get_next_tick_to_awake();
+	if (next_tick <= ticks)
 		thread_awake(ticks);
 }
 

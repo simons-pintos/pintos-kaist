@@ -110,11 +110,12 @@ void thread_sleep(int64_t ticks)
 	old_level = intr_disable();
 	if (curr != idle_thread)
 	{
-		curr->status = THREAD_BLOCKED;
+		// curr->status = THREAD_BLOCKED;
 		curr->wakeup_tick = ticks;
 		update_next_tick_to_awake(ticks); // 추후 볼 것
 		list_push_back(&sleep_list, &curr->elem);
-		schedule();
+		// schedule();
+		do_schedule(THREAD_BLOCKED);
 	}
 	intr_set_level(old_level);
 	/* 현재 스레드가 idle 스레드가 아닐경우
@@ -125,6 +126,7 @@ thread의 상태를 BLOCKED로 바꾸고 깨어나야 할 ticks을 저장,
 
 void thread_awake(int64_t ticks)
 {
+	next_tick_to_awake = INT64_MAX;
 	struct list_elem *temp_elem = list_begin(&sleep_list);
 
 	while (temp_elem != list_tail(&sleep_list))
@@ -132,8 +134,9 @@ void thread_awake(int64_t ticks)
 		struct thread *t = list_entry(temp_elem, struct thread, elem);
 		if (t->wakeup_tick <= ticks)
 		{
-			list_remove(&t->elem);
-			t->status = THREAD_READY;
+			temp_elem = list_remove(&t->elem);
+			thread_unblock(t);
+			// list_push_back(&ready_list, &t->elem);
 		}
 		else
 		{
