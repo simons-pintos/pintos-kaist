@@ -136,7 +136,6 @@ void thread_awake(int64_t ticks)
 		{
 			temp_elem = list_remove(&t->elem);
 			thread_unblock(t);
-			// list_push_back(&ready_list, &t->elem);
 		}
 		else
 		{
@@ -246,6 +245,10 @@ void thread_print_stats(void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+
+
+   // 새로 생성된 스레드가 실행 중인 스레드보다 우선순위가 높을 경우 CPU를 선점하도록 하기 위해
+   // 수정해야됨
 tid_t thread_create(const char *name, int priority,
 					thread_func *function, void *aux)
 {
@@ -320,8 +323,7 @@ void thread_unblock(struct thread *t)
 	ASSERT(t->status == THREAD_BLOCKED);   // 스테이터스가 블락 상태인지 검사
 	list_push_back(&ready_list, &t->elem); // 레디리스트에 넣어줌
 	t->status = THREAD_READY;			   // 스테이터스를 레디 상태로 바꿔줌
-	intr_set_level(old_level);			   // itr - off 상태인 것으로 세팅해줌
-}
+	intr_set_level(old_level);			   // 예전으로 itr 레벨을 바꿔줌 (잠시만 off 였던 것이다)
 
 /* Returns the name of the running thread. */
 //쓰레드의 네임을 리턴해줌
@@ -491,19 +493,20 @@ kernel_thread(thread_func *function, void *aux)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
+   // 블락드 스레드로서 네임과, 프라이오리티를 부여하면서 스레드를 초기화함
 static void
 init_thread(struct thread *t, const char *name, int priority)
 {
-	ASSERT(t != NULL);
-	ASSERT(PRI_MIN <= priority && priority <= PRI_MAX);
-	ASSERT(name != NULL);
+	ASSERT(t != NULL); // 스레드가 널이 아니여야됨
+	ASSERT(PRI_MIN <= priority && priority <= PRI_MAX); // 프라이오리티값이 민, 맥스 값 사이여야됨
+	ASSERT(name != NULL); // 네임이 널이 아니여야됨
 
-	memset(t, 0, sizeof *t);
-	t->status = THREAD_BLOCKED;
-	strlcpy(t->name, name, sizeof t->name);
-	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
-	t->priority = priority;
-	t->magic = THREAD_MAGIC;
+	memset(t, 0, sizeof *t); //스레드 만큼 메모리 할당
+	t->status = THREAD_BLOCKED; // 스테이터스를 블락드로 바꿔줌
+	strlcpy(t->name, name, sizeof t->name); //스레드의 네임에 네임을 복사해준다
+	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *); // 스위칭 정보 설정 (???)
+	t->priority = priority; // 프라이오티 파라미터값을 넣어줌
+	t->magic = THREAD_MAGIC; // 매직 값 설정
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
