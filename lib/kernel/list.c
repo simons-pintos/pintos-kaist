@@ -260,45 +260,45 @@ list_remove(struct list_elem *elem) // 중간에 있는 엘리먼트 삭제
 /* Removes the front element from LIST and returns it.
    Undefined behavior if LIST is empty before removal. */
 struct list_elem *
-list_pop_front(struct list *list)
+list_pop_front(struct list *list) // 리스트의 맨 앞 엘리먼트를 리무브하고 그 엘리먼트를 리턴
 {
-	struct list_elem *front = list_front(list);
-	list_remove(front);
-	return front;
+	struct list_elem *front = list_front(list); // 리스트의 맨 앞 엘리먼트
+	list_remove(front);							// 맨 앞 엘리먼트 제거
+	return front;								// 제거된 엘리먼트 반환
 }
 
 /* Removes the back element from LIST and returns it.
    Undefined behavior if LIST is empty before removal. */
 struct list_elem *
-list_pop_back(struct list *list)
+list_pop_back(struct list *list) // 리스트의 맨 뒤 엘리먼트를 리무브 하고, 그 엘리먼트 리턴
 {
-	struct list_elem *back = list_back(list);
-	list_remove(back);
-	return back;
+	struct list_elem *back = list_back(list); // 리스트의 맨 뒤 엘리먼트
+	list_remove(back);						  // 해당 엘리먼트 제거
+	return back;							  // 제거된 엘리번트 리턴
 }
 
 /* Returns the front element in LIST.
    Undefined behavior if LIST is empty. */
 struct list_elem *
-list_front(struct list *list)
+list_front(struct list *list) // 리스트의 맨 앞 엘리먼트를 리턴
 {
-	ASSERT(!list_empty(list));
-	return list->head.next;
+	ASSERT(!list_empty(list)); // 리스트가 비어있지 않아야 됨
+	return list->head.next;	   //리스트의 헤드의 다음 출력 (맨 앞)
 }
 
 /* Returns the back element in LIST.
    Undefined behavior if LIST is empty. */
 struct list_elem *
-list_back(struct list *list)
+list_back(struct list *list) // 리스트의 맨 뒤 엘리먼트를 리턴
 {
-	ASSERT(!list_empty(list));
-	return list->tail.prev;
+	ASSERT(!list_empty(list)); // 리스트가 비어있지 않아야 됨
+	return list->tail.prev; // 리스트의 테일의 앞 (맨 뒤)
 }
 
 /* Returns the number of elements in LIST.
    Runs in O(n) in the number of elements. */
 size_t
-list_size(struct list *list)
+list_size(struct list *list) //리스트에 포함된 엘리먼트가 몇개인지 리턴
 {
 	struct list_elem *e;
 	size_t cnt = 0;

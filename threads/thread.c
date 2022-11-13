@@ -70,6 +70,8 @@ void thread_sleep(int64_t ticks);
 void thread_awake(int64_t ticks);
 void update_next_tick_to_awake(int64_t ticks);
 int64_t get_next_tick_to_awake(void);
+void test_max_priority(void);
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Returns true if T appears to point to a valid thread. */
 // 스레드가 널이 아니고, 스레드의 매직 값이 매직을 유지하면 유효하다
@@ -124,6 +126,17 @@ thread의 상태를 BLOCKED로 바꾸고 깨어나야 할 ticks을 저장,
 	/* 현재 스레드를 슬립 큐에 삽입한 후에 스케줄한다. */ /* 해당 과정중에는 인터럽트를 받아들이지 않는다. */
 }
 
+//새로 추가 2
+void test_max_priority(void)
+{
+	// 현재 수행중인 스레드와 가장 높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링
+}
+
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	//인자로 주어진 스레드들의 우선순위를 비교
+}
+
 void thread_awake(int64_t ticks)
 {
 	next_tick_to_awake = INT64_MAX;
@@ -151,7 +164,7 @@ unblock 한다.
 
 void update_next_tick_to_awake(int64_t ticks)
 {
-	if (next_tick_to_awake>ticks)
+	if (next_tick_to_awake > ticks)
 		next_tick_to_awake = ticks;
 }
 
@@ -246,9 +259,8 @@ void thread_print_stats(void)
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 
-
-   // 새로 생성된 스레드가 실행 중인 스레드보다 우선순위가 높을 경우 CPU를 선점하도록 하기 위해
-   // 수정해야됨
+// 새로 생성된 스레드가 실행 중인 스레드보다 우선순위가 높을 경우 CPU를 선점하도록 하기 위해
+// 수정해야됨
 tid_t thread_create(const char *name, int priority,
 					thread_func *function, void *aux)
 {
@@ -279,6 +291,9 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	struct thread *curr = thread_current()
+	t->priority > 
+
 
 	return tid;
 }
@@ -324,6 +339,7 @@ void thread_unblock(struct thread *t)
 	list_push_back(&ready_list, &t->elem); // 레디리스트에 넣어줌
 	t->status = THREAD_READY;			   // 스테이터스를 레디 상태로 바꿔줌
 	intr_set_level(old_level);			   // 예전으로 itr 레벨을 바꿔줌 (잠시만 off 였던 것이다)
+}
 
 /* Returns the name of the running thread. */
 //쓰레드의 네임을 리턴해줌
@@ -400,7 +416,7 @@ void thread_yield(void)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void thread_set_priority(int new_priority)
+void thread_set_priority(int new_priority) // 커렌트쓰레드의 priority를 설정해줌
 {
 	thread_current()->priority = new_priority;
 }
@@ -408,7 +424,7 @@ void thread_set_priority(int new_priority)
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
 {
-	return thread_current()->priority;
+	return thread_current()->priority; // 커렌트스레드의 priority를 리턴해줌
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -493,20 +509,20 @@ kernel_thread(thread_func *function, void *aux)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
-   // 블락드 스레드로서 네임과, 프라이오리티를 부여하면서 스레드를 초기화함
+// 블락드 스레드로서 네임과, 프라이오리티를 부여하면서 스레드를 초기화함
 static void
 init_thread(struct thread *t, const char *name, int priority)
 {
-	ASSERT(t != NULL); // 스레드가 널이 아니여야됨
+	ASSERT(t != NULL);									// 스레드가 널이 아니여야됨
 	ASSERT(PRI_MIN <= priority && priority <= PRI_MAX); // 프라이오리티값이 민, 맥스 값 사이여야됨
-	ASSERT(name != NULL); // 네임이 널이 아니여야됨
+	ASSERT(name != NULL);								// 네임이 널이 아니여야됨
 
-	memset(t, 0, sizeof *t); //스레드 만큼 메모리 할당
-	t->status = THREAD_BLOCKED; // 스테이터스를 블락드로 바꿔줌
-	strlcpy(t->name, name, sizeof t->name); //스레드의 네임에 네임을 복사해준다
+	memset(t, 0, sizeof *t);						   //스레드 만큼 메모리 할당
+	t->status = THREAD_BLOCKED;						   // 스테이터스를 블락드로 바꿔줌
+	strlcpy(t->name, name, sizeof t->name);			   //스레드의 네임에 네임을 복사해준다
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *); // 스위칭 정보 설정 (???)
-	t->priority = priority; // 프라이오티 파라미터값을 넣어줌
-	t->magic = THREAD_MAGIC; // 매직 값 설정
+	t->priority = priority;							   // 프라이오티 파라미터값을 넣어줌
+	t->magic = THREAD_MAGIC;						   // 매직 값 설정
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
