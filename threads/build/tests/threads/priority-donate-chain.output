@@ -4,20 +4,30 @@ Kernel command line: -q run priority-donate-chain
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  132505600 loops/s.
+Calibrating timer...  104755200 loops/s.
 Boot complete.
 Executing 'priority-donate-chain':
 (priority-donate-chain) begin
 (priority-donate-chain) main got lock.
 (priority-donate-chain) main should have priority 3.  Actual priority: 0.
+(priority-donate-chain) interloper 1 finished.
 (priority-donate-chain) main should have priority 6.  Actual priority: 0.
+(priority-donate-chain) interloper 2 finished.
 (priority-donate-chain) main should have priority 9.  Actual priority: 0.
+(priority-donate-chain) interloper 3 finished.
 (priority-donate-chain) main should have priority 12.  Actual priority: 0.
+(priority-donate-chain) interloper 4 finished.
 (priority-donate-chain) main should have priority 15.  Actual priority: 0.
+(priority-donate-chain) interloper 5 finished.
 (priority-donate-chain) main should have priority 18.  Actual priority: 0.
+(priority-donate-chain) interloper 6 finished.
 (priority-donate-chain) main should have priority 21.  Actual priority: 0.
+(priority-donate-chain) interloper 7 finished.
 (priority-donate-chain) main finishing with priority 0.
 (priority-donate-chain) end
 Execution of 'priority-donate-chain' complete.
-Timer: 31 ticks
-Thread: 0 idle ticks, 31 kernel ticks, 0 user ticks
+Timer: 26 ticks
+Thread: 0 idle ticks, 26 kernel ticks, 0 user ticks
+Console: 1406 characters output
+Keyboard: 0 keys pressed
+Powering off...

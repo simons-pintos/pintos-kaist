@@ -1,13 +1,13 @@
 FAIL
 Kernel panic in run: PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
-Call stack: 0x8004213357 0x8004208935 0x8004208ce7 0x8004213b6a 0x8004213c12 0x8004209a6d 0x8004209f2e 0x8004217ff3 0x8004207358
+Call stack: 0x8004213479 0x8004208a57 0x8004208e09 0x8004207b6b 0x800420db62 0x800421683f 0x80042166b4 0x80042067f3 0x800420613d
 Translation of call stack:
-0x0000008004213357: debug_panic (lib/kernel/debug.c:32)
-0x0000008004208935: intr_handler (threads/interrupt.c:365)
-0x0000008004208ce7: intr_entry (threads/intr-stubs.o:?)
-0x0000008004213b6a: list_remove (lib/kernel/list.c:254)
-0x0000008004213c12: list_pop_front (lib/kernel/list.c:267)
-0x0000008004209a6d: sema_up (threads/synch.c:113)
-0x0000008004209f2e: lock_release (threads/synch.c:227)
-0x0000008004217ff3: a_thread_func (tests/threads/priority-donate-multiple2.c:72)
-0x0000008004207358: kernel_thread (threads/thread.c:489)
+0x0000008004213479: debug_panic (lib/kernel/debug.c:32)
+0x0000008004208a57: intr_handler (threads/interrupt.c:365)
+0x0000008004208e09: intr_entry (threads/intr-stubs.o:?)
+0x0000008004207b6b: intr_set_level (threads/interrupt.c:131 (discriminator 1))
+0x000000800420db62: vga_putc (devices/vga.c:92)
+0x000000800421683f: putchar_have_lock (lib/kernel/console.c:177)
+0x00000080042166b4: puts (lib/kernel/console.c:136)
+0x00000080042067f3: power_off (threads/init.c:348)
+0x000000800420613d: main (threads/init.c:127)

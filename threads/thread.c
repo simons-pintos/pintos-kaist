@@ -129,12 +129,25 @@ thread의 상태를 BLOCKED로 바꾸고 깨어나야 할 ticks을 저장,
 //새로 추가 2
 void test_max_priority(void)
 {
-	// 현재 수행중인 스레드와 가장 높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링
+	// ASSERT(!list_empty(&ready_list));
+	if (!list_empty(&ready_list))
+	{
+		struct thread *ready_max_t = list_entry(list_begin(&ready_list), struct thread, elem);
+		if (ready_max_t->priority > thread_current()->priority)
+			thread_yield(); // schedule // do_schedule}
+	}
 }
 
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	//인자로 주어진 스레드들의 우선순위를 비교
+	struct thread* t_a;
+	struct thread* t_b;
+	
+	t_a = list_entry(a, struct thread, elem);
+	t_b = list_entry(b, struct thread, elem);
+	if (t_a->priority > t_b->priority)
+		return true;
+	return false;
 }
 
 void thread_awake(int64_t ticks)
@@ -291,9 +304,9 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
-	struct thread *curr = thread_current()
-	t->priority > 
-
+	struct thread *curr = thread_current();
+	if (t->priority > curr->priority)
+		thread_yield();
 
 	return tid;
 }
@@ -334,11 +347,12 @@ void thread_unblock(struct thread *t)
 
 	ASSERT(is_thread(t)); // 스레드가 존재하는지, 유효한지 검사함
 
-	old_level = intr_disable();			   // itr을 off로 저장
-	ASSERT(t->status == THREAD_BLOCKED);   // 스테이터스가 블락 상태인지 검사
-	list_push_back(&ready_list, &t->elem); // 레디리스트에 넣어줌
-	t->status = THREAD_READY;			   // 스테이터스를 레디 상태로 바꿔줌
-	intr_set_level(old_level);			   // 예전으로 itr 레벨을 바꿔줌 (잠시만 off 였던 것이다)
+	old_level = intr_disable();			 // itr을 off로 저장
+	ASSERT(t->status == THREAD_BLOCKED); // 스테이터스가 블락 상태인지 검사
+										 // list_push_back(&ready_list, &t->elem); // 레디리스트에 넣어줌
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+	t->status = THREAD_READY;  // 스테이터스를 레디 상태로 바꿔줌
+	intr_set_level(old_level); // 예전으로 itr 레벨을 바꿔줌 (잠시만 off 였던 것이다)
 }
 
 /* Returns the name of the running thread. */
@@ -410,7 +424,7 @@ void thread_yield(void)
 
 	old_level = intr_disable(); // intr level을 off로 바꿔줌
 	if (curr != idle_thread)	// 현재 쓰레드가 아이들쓰레드가 아니라면,
-		list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
 	do_schedule(THREAD_READY); // cpu를 점유하고 있는 현재 스레드를 다른 스레드로 교체해주고 현재 스레드를 ready로 바꿔준다
 	intr_set_level(old_level); // itrl level을 off로 해줌
 }
@@ -419,6 +433,7 @@ void thread_yield(void)
 void thread_set_priority(int new_priority) // 커렌트쓰레드의 priority를 설정해줌
 {
 	thread_current()->priority = new_priority;
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */

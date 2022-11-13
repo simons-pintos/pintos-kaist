@@ -42,8 +42,8 @@
    - up or "V": increment the value (and wake up one waiting
    thread, if any). */
 void
-sema_init (struct semaphore *sema, unsigned value) {
-	ASSERT (sema != NULL);
+sema_init (struct semaphore *sema, unsigned value) { //세마포어 이닛해줌
+	ASSERT (sema != NULL); //세마포어는 널이 아니어야됨
 
 	sema->value = value;
 	list_init (&sema->waiters);

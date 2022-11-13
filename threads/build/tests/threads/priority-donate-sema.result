@@ -13,7 +13,7 @@ Acceptable output:
   (priority-donate-sema) end
 Differences in `diff -u' format:
   (priority-donate-sema) begin
-- (priority-donate-sema) Thread L acquired lock.
+  (priority-donate-sema) Thread L acquired lock.
 - (priority-donate-sema) Thread L downed semaphore.
 - (priority-donate-sema) Thread H acquired lock.
 - (priority-donate-sema) Thread H finished.

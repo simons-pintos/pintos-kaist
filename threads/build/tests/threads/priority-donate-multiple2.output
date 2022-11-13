@@ -9,26 +9,31 @@ Boot complete.
 Executing 'priority-donate-multiple2':
 (priority-donate-multiple2) begin
 (priority-donate-multiple2) Main thread should have priority 34.  Actual priority: 31.
+(priority-donate-multiple2) Thread c finished.
 (priority-donate-multiple2) Main thread should have priority 36.  Actual priority: 31.
 (priority-donate-multiple2) Main thread should have priority 36.  Actual priority: 31.
 (priority-donate-multiple2) Threads b, a, c should have just finished, in that order.
 (priority-donate-multiple2) Main thread should have priority 31.  Actual priority: 31.
 (priority-donate-multiple2) end
 Execution of 'priority-donate-multiple2' complete.
-(priority-donate-multiple2) Thread a acquired lock a.
-Interrupt 0x0e (#PF Page-Fault Exception) at rip=8004213413
- cr2=0000000000000001 error=               0
-rax 0000000000000001 rbx 0000000000000000 rcx 00000080040b8000 rdx 0000000000000001
-rsp 0000008004234ef8 rbp 0000008004234f00 rsi 000000000000800f rdi 0000000000000001
-rip 0000008004213413 r8 0000008004234ebc  r9 0000000000000000 r10 0000000000000000
+Timer: 26 ticks
+Thread: 0 idle ticks, 26 kernel ticks, 0 user ticks
+Console: 961 characters output
+Keyboard: 0 keys pressed
+Powering off...
+Interrupt 0x0d (#GP General Protection Exception) at rip=8004208e57
+ cr2=0000000000000000 error=            6000
+rax 0000000000000000 rbx 0000000000204400 rcx 00000080040b8000 rdx 00000000000003d4
+rsp 0000008004000ed8 rbp 0000008004000f30 rsi 000000000000800f rdi 0000000000000001
+rip 0000008004208e57 r8 0000008004000ec8  r9 0000008004216761 r10 0000000000000000
 r11 0000000000000000 r12 0000000000000000 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000002
+r15 0000000000000000 rflags 00200006
 es: 0010 ds: 0010 cs: 0008 ss: 0010
 Kernel PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
-Call stack: 0x8004213357 0x8004208935 0x8004208ce7 0x8004213b6a 0x8004213c12 0x8004209a6d 0x8004209f2e 0x8004217ff3 0x8004207358.
+Call stack: 0x8004213479 0x8004208a57 0x8004208e09 0x8004207b6b 0x800420db62 0x800421683f 0x80042166b4 0x80042067f3 0x800420613d.
 The `backtrace' program can make call stacks useful.
 Read "Backtraces" in the "Debugging Tools" chapter
 of the Pintos documentation for more information.
-Timer: 28 ticks
-Thread: 0 idle ticks, 28 kernel ticks, 0 user ticks
+Timer: 27 ticks
+Thread: 0 idle ticks, 27 kernel ticks, 0 user ticks
 Console: 1
