@@ -32,16 +32,18 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-/* Initializes semaphore SEMA to VALUE.  A semaphore is a
-   nonnegative integer along with two atomic operators for
-   manipulating it:
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
-   - down or "P": wait for the value to become positive, then
-   decrement it.
+	/* Initializes semaphore SEMA to VALUE.  A semaphore is a
+	   nonnegative integer along with two atomic operators for
+	   manipulating it:
 
-   - up or "V": increment the value (and wake up one waiting
-   thread, if any). */
-void sema_init(struct semaphore *sema, unsigned value)
+	   - down or "P": wait for the value to become positive, then
+	   decrement it.
+
+	   - up or "V": increment the value (and wake up one waiting
+	   thread, if any). */
+	void sema_init(struct semaphore *sema, unsigned value)
 {						  //세마포어를 이닛해줌
 	ASSERT(sema != NULL); //세마포어는 널이 아니어야됨
 
@@ -83,7 +85,7 @@ void sema_down(struct semaphore *sema)
 // 	enum intr_level old_level;
 // 	struct semaphore_elem *curr_elem = list_entry(&thread_current()->elem, struct semaphore_elem, elem);
 // 	curr_elem->priority = thread_current()->priority;
-	
+
 // 	ASSERT(sema != NULL);	 // 세마가 널이 아니여야됨
 // 	ASSERT(!intr_context()); // 외부 인터럽트를 받지 않아야됨
 
@@ -122,7 +124,6 @@ bool sema_try_down(struct semaphore *sema) // 세마포어가 있을 때만 세�
 	return success; // 성공값 리턴
 }
 
-
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -148,7 +149,7 @@ void sema_up(struct semaphore *sema) // 세마포어를 풀어주고 (1증가), 
 	intr_set_level(old_level); // 인터럽트 레벨 되돌려놓음F
 }
 
-bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
 	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
