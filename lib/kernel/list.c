@@ -316,7 +316,7 @@ bool list_empty(struct list *list) // 리스트가 비어있는지 확인하는 
 
 /* Swaps the `struct list_elem *'s that A and B point to. */
 static void
-swap(struct list_elem **a, struct list_elem **b)
+swap(struct list_elem **a, struct list_elem **b) // 리스트의 엘리먼트 a,b를 서로 스왑
 {
 	struct list_elem *t = *a;
 	*a = *b;
@@ -326,7 +326,7 @@ swap(struct list_elem **a, struct list_elem **b)
 /* Reverses the order of LIST. */
 void list_reverse(struct list *list)
 {
-	if (!list_empty(list))
+	if (!list_empty(list)) // 리스트가 비어있지 않다면
 	{
 		struct list_elem *e;
 

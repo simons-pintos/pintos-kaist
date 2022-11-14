@@ -153,11 +153,12 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 void thread_awake(int64_t ticks)
 {
 	next_tick_to_awake = INT64_MAX;
+	struct thread *t = NULL;
 	struct list_elem *temp_elem = list_begin(&sleep_list);
 
 	while (temp_elem != list_tail(&sleep_list))
 	{
-		struct thread *t = list_entry(temp_elem, struct thread, elem);
+		t = list_entry(temp_elem, struct thread, elem);
 		if (t->wakeup_tick <= ticks)
 		{
 			temp_elem = list_remove(&t->elem);
@@ -165,7 +166,7 @@ void thread_awake(int64_t ticks)
 		}
 		else
 		{
-			update_next_tick_to_awake(ticks);
+			update_next_tick_to_awake(t->wakeup_tick);
 			temp_elem = temp_elem->next;
 		}
 	}

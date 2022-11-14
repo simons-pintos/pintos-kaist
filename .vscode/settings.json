@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "random.h": "c",
-        "process.h": "c"
+        "process.h": "c",
+        "intr-stubs.h": "c",
+        "stdio.h": "c",
+        "flags.h": "c",
+        "intrinsic.h": "c",
+        "vaddr.h": "c"
     }
 }
