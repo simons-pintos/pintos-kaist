@@ -20,8 +20,8 @@ Executing 'priority-donate-multiple2':
 (priority-donate-multiple2) Main thread should have priority 31.  Actual priority: 31.
 (priority-donate-multiple2) end
 Execution of 'priority-donate-multiple2' complete.
-Timer: 39 ticks
-Thread: 0 idle ticks, 39 kernel ticks, 0 user ticks
+Timer: 42 ticks
+Thread: 0 idle ticks, 42 kernel ticks, 0 user ticks
 Console: 1163 characters output
 Keyboard: 0 keys pressed
 Powering off...

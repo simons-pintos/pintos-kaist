@@ -4,7 +4,7 @@ Kernel command line: -q run priority-condvar
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  71987200 loops/s.
+Calibrating timer...  150732800 loops/s.
 Boot complete.
 Executing 'priority-condvar':
 (priority-condvar) begin
@@ -40,8 +40,8 @@ Executing 'priority-condvar':
 (priority-condvar) Thread priority 21 woke up.
 (priority-condvar) end
 Execution of 'priority-condvar' complete.
-Timer: 38 ticks
-Thread: 0 idle ticks, 38 kernel ticks, 0 user ticks
-Console: 1704 characters output
+Timer: 44 ticks
+Thread: 0 idle ticks, 44 kernel ticks, 0 user ticks
+Console: 1705 characters output
 Keyboard: 0 keys pressed
 Powering off...

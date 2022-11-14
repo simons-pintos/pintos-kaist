@@ -59,22 +59,43 @@ void sema_init(struct semaphore *sema, unsigned value)
    sema_down function. */
 void sema_down(struct semaphore *sema)
 {
+	struct thread *curr = thread_current();
+	struct semaphore_elem *curr_elem = list_entry(&curr->elem, struct semaphore_elem, elem);
+	curr_elem->priority = curr->priority;
+
 	enum intr_level old_level;
-	struct semaphore_elem *sema_elem = list_entry(&thread_current()->elem, struct semaphore_elem, elem);
-	sema_elem->priority = thread_current()->priority;
-	
+
 	ASSERT(sema != NULL);	 // 세마가 널이 아니여야됨
 	ASSERT(!intr_context()); // 외부 인터럽트를 받지 않아야됨
 
 	old_level = intr_disable(); // 순간 인터럽트 디스에이블로 만들어줌
 	while (sema->value == 0)	// 세마값이 0인 동안 (자원이 없는 상태라면)
 	{
-		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_sem_priority, NULL);
+		list_insert_ordered(&sema->waiters, &curr->elem, cmp_sem_priority, NULL);
 		thread_block(); // 쓰레드를 블락상태로 만듦
 	}
 	sema->value--;			   // 세마값 1 깎음
 	intr_set_level(old_level); // 다시 인터럽트 레벨 복구
 }
+
+// void sema_down(struct semaphore *sema)
+// {
+// 	enum intr_level old_level;
+// 	struct semaphore_elem *curr_elem = list_entry(&thread_current()->elem, struct semaphore_elem, elem);
+// 	curr_elem->priority = thread_current()->priority;
+	
+// 	ASSERT(sema != NULL);	 // 세마가 널이 아니여야됨
+// 	ASSERT(!intr_context()); // 외부 인터럽트를 받지 않아야됨
+
+// 	old_level = intr_disable(); // 순간 인터럽트 디스에이블로 만들어줌
+// 	while (sema->value == 0)	// 세마값이 0인 동안 (자원이 없는 상태라면)
+// 	{
+// 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_sem_priority, NULL);
+// 		thread_block(); // 쓰레드를 블락상태로 만듦
+// 	}
+// 	sema->value--;			   // 세마값 1 깎음
+// 	intr_set_level(old_level); // 다시 인터럽트 레벨 복구
+// }
 
 /* Down or "P" operation on a semaphore, but only if the
    semaphore is not already 0.  Returns true if the semaphore is
@@ -100,6 +121,7 @@ bool sema_try_down(struct semaphore *sema) // 세마포어가 있을 때만 세�
 
 	return success; // 성공값 리턴
 }
+
 
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
@@ -290,13 +312,13 @@ void cond_init(struct condition *cond)
 void cond_wait(struct condition *cond, struct lock *lock)
 {
 	struct semaphore_elem waiter;
+	waiter.priority = thread_current()->priority;
 
 	ASSERT(cond != NULL);
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(lock_held_by_current_thread(lock));
 
-	waiter.priority = thread_current()->priority;
 	sema_init(&waiter.semaphore, 0);
 	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);
 	lock_release(lock);
