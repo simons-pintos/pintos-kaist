@@ -6,6 +6,9 @@
         "stdio.h": "c",
         "flags.h": "c",
         "intrinsic.h": "c",
-        "vaddr.h": "c"
+        "vaddr.h": "c",
+        "thread.h": "c",
+        "synch.h": "c",
+        "stdbool.h": "c"
     }
 }
