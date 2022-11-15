@@ -401,7 +401,10 @@ void thread_yield(void)
 void thread_set_priority(int new_priority)
 {
 	thread_current()->init_priority = new_priority;
+
 	refresh_priority();
+	donate_priority();
+
 	test_max_priority();
 }
 
@@ -413,44 +416,31 @@ int thread_get_priority(void)
 
 void donate_priority(void)
 {
-	struct thread *lock_holder = thread_current()->wait_on_lock->holder;
-	struct thread *temp_t = lock_holder;
+	struct thread *temp_t = thread_current();
 
-	int i = 1;
-	while (i < NESTED_DEPTH && temp_t->wait_on_lock != NULL)
+	int depth = 1;
+	while (depth < NESTED_DEPTH && temp_t->wait_on_lock != NULL)
 	{
-		if (thread_current()->priority > temp_t->priority)
-		{
-			temp_t->priority = thread_current()->priority;
-			temp_t = temp_t->wait_on_lock->holder;
-			i++;
-		}
-		else
-		{
-			break;
-		}
-	}
+		temp_t = temp_t->wait_on_lock->holder;
 
-	temp_t->priority = thread_current()->priority;
+		if (temp_t->priority < thread_current()->priority)
+			temp_t->priority = thread_current()->priority;
+
+		depth++;
+	}
 }
 
 void remove_with_lock(struct lock *lock)
 {
 	struct list_elem *temp_elem = list_begin(&thread_current()->donations);
-	struct thread *temp_t = NULL;
 
 	while (temp_elem != list_tail(&thread_current()->donations))
 	{
-		temp_t = list_entry(temp_elem, struct thread, donation_elem);
-
-		if (temp_t->wait_on_lock == lock)
-		{
+		if (list_entry(temp_elem, struct thread, donation_elem)->wait_on_lock == lock)
 			temp_elem = list_remove(temp_elem);
-		}
+
 		else
-		{
 			temp_elem = temp_elem->next;
-		}
 	}
 }
 
@@ -466,9 +456,7 @@ void refresh_priority(void)
 		temp_t = list_entry(temp_elem, struct thread, donation_elem);
 
 		if (thread_current()->priority < temp_t->priority)
-		{
 			thread_current()->priority = temp_t->priority;
-		}
 
 		temp_elem = temp_elem->next;
 	}
