@@ -4,12 +4,12 @@ Kernel command line: -q run priority-donate-one
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  78540800 loops/s.
+Calibrating timer...  157081600 loops/s.
 Boot complete.
 Executing 'priority-donate-one':
 (priority-donate-one) begin
-(priority-donate-one) This thread should have priority 32.  Actual priority: 31.
-(priority-donate-one) This thread should have priority 33.  Actual priority: 31.
+(priority-donate-one) This thread should have priority 32.  Actual priority: 32.
+(priority-donate-one) This thread should have priority 33.  Actual priority: 33.
 (priority-donate-one) acquire2: got the lock
 (priority-donate-one) acquire2: done
 (priority-donate-one) acquire1: got the lock
@@ -18,8 +18,8 @@ Executing 'priority-donate-one':
 (priority-donate-one) This should be the last line before finishing this test.
 (priority-donate-one) end
 Execution of 'priority-donate-one' complete.
-Timer: 24 ticks
-Thread: 0 idle ticks, 24 kernel ticks, 0 user ticks
-Console: 938 characters output
+Timer: 26 ticks
+Thread: 0 idle ticks, 26 kernel ticks, 0 user ticks
+Console: 939 characters output
 Keyboard: 0 keys pressed
 Powering off...

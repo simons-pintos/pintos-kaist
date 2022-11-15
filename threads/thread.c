@@ -72,6 +72,7 @@ void update_next_tick_to_awake(int64_t ticks);
 int64_t get_next_tick_to_awake(void);
 void test_max_priority(void);
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void thread_set_priority(int new_priority);
 
 /* Returns true if T appears to point to a valid thread. */
 // 스레드가 널이 아니고, 스레드의 매직 값이 매직을 유지하면 유효하다
@@ -129,20 +130,19 @@ thread의 상태를 BLOCKED로 바꾸고 깨어나야 할 ticks을 저장,
 //새로 추가 2
 void test_max_priority(void)
 {
-	// ASSERT(!list_empty(&ready_list));
 	if (!list_empty(&ready_list))
 	{
 		struct thread *ready_max_t = list_entry(list_begin(&ready_list), struct thread, elem);
 		if (ready_max_t->priority > thread_current()->priority)
-			thread_yield(); // schedule // do_schedule}
+			thread_yield();
 	}
 }
 
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	struct thread* t_a;
-	struct thread* t_b;
-	
+	struct thread *t_a;
+	struct thread *t_b;
+
 	t_a = list_entry(a, struct thread, elem);
 	t_b = list_entry(b, struct thread, elem);
 	if (t_a->priority > t_b->priority)
@@ -433,8 +433,14 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) // 커렌트쓰레드의 priority를 설정해줌
 {
-	thread_current()->priority = new_priority;
-	test_max_priority();
+	struct thread *curr = thread_current();
+	curr->init_priority = new_priority;
+	curr->priority = new_priority;
+	
+	refresh_priority();
+	donate_priority();
+
+	test_max_priority(); //레디리스트 맨앞과 priority 비교해서 바꿔줌
 }
 
 /* Returns the current thread's priority. */
@@ -539,6 +545,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *); // 스위칭 정보 설정 (???)
 	t->priority = priority;							   // 프라이오티 파라미터값을 넣어줌
 	t->magic = THREAD_MAGIC;						   // 매직 값 설정
+
+	t->init_priority = priority;
+	t->wait_on_lock = NULL;
+	list_init(&t->donations);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

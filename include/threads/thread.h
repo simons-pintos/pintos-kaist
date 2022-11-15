@@ -92,9 +92,16 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
+	int init_priority; // 도네이션하고 나서 복귀할 때 기억할 초기 priority 값 저장
+	struct lock *wait_on_lock; // 해당 스레드가 대기하고 있는 lock 자료구조의 주소 저장
+	struct list donations; // priority를 기부해준 elem들 저장
+	struct list_elem donation_elem; // 도네이션 elem
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 	int64_t wakeup_tick;
+
+	
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
