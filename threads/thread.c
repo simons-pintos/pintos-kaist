@@ -151,7 +151,8 @@ void thread_awake(int64_t ticks)
 		t = list_entry(temp_elem, struct thread, elem);
 		if (t->wakeup_tick <= ticks)
 		{
-			temp_elem = list_remove(&t->elem);
+			// temp_elem = list_remove(&t->elem);
+			temp_elem = list_remove(temp_elem);
 			thread_unblock(t);
 		}
 		else
@@ -415,25 +416,34 @@ void donate_priority(void)
 	struct thread *lock_holder = thread_current()->wait_on_lock->holder;
 	struct thread *temp_t = lock_holder;
 
-	if (thread_current()->priority > lock_holder->priority)
+	int i = 1;
+	while (i < NESTED_DEPTH && temp_t->wait_on_lock != NULL)
 	{
-		int i = 0;
-		while (i < NESTED_DEPTH && temp_t != NULL)
+		if (thread_current()->priority > temp_t->priority)
 		{
 			temp_t->priority = thread_current()->priority;
 			temp_t = temp_t->wait_on_lock->holder;
 			i++;
 		}
+		else
+		{
+			break;
+		}
 	}
+
+	temp_t->priority = thread_current()->priority;
 }
 
 void remove_with_lock(struct lock *lock)
 {
 	struct list_elem *temp_elem = list_begin(&thread_current()->donations);
+	struct thread *temp_t = NULL;
 
 	while (temp_elem != list_tail(&thread_current()->donations))
 	{
-		if (list_entry(temp_elem, struct thread, elem)->wait_on_lock == lock)
+		temp_t = list_entry(temp_elem, struct thread, donation_elem);
+
+		if (temp_t->wait_on_lock == lock)
 		{
 			temp_elem = list_remove(temp_elem);
 		}
@@ -453,7 +463,7 @@ void refresh_priority(void)
 
 	while (temp_elem != list_tail(&thread_current()->donations))
 	{
-		temp_t = list_entry(temp_elem, struct thread, elem);
+		temp_t = list_entry(temp_elem, struct thread, donation_elem);
 
 		if (thread_current()->priority < temp_t->priority)
 		{
@@ -562,8 +572,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 
 	t->init_priority = priority;
-	lock_init(t->wait_on_lock);
+
 	list_init(&t->donations);
+	t->wait_on_lock = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

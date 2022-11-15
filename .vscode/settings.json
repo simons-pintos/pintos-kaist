@@ -9,6 +9,7 @@
         "vaddr.h": "c",
         "thread.h": "c",
         "synch.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "stddef.h": "c"
     }
 }
