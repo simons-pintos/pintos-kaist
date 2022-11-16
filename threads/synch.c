@@ -158,9 +158,9 @@ void sema_up(struct semaphore *sema) // 세마포어를 풀어주고 (1증가), 
 
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	struct semaphore_elem * sa = list_entry(a, struct semaphore_elem, elem); 
-	struct semaphore_elem * sb = list_entry(b, struct semaphore_elem, elem);
-	
+	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+
 	struct list_elem *sa_e = list_begin(&(sa->semaphore.waiters));
 	struct list_elem *sb_e = list_begin(&(sb->semaphore.waiters));
 
@@ -246,6 +246,15 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!lock_held_by_current_thread(lock)); // 락 홀더가 현재쓰레드가 아니어야됨
 
 	struct thread *curr = thread_current();
+
+	// if (thread_mlfqs)
+	// {
+	// 	sema_down(&lock->semaphore);
+	// 	thread_current()->wait_on_lock = NULL;
+	// 	lock->holder = thread_current();
+	// 	return;
+	// }
+
 	if (lock->holder)
 	{
 		curr->wait_on_lock = lock;
@@ -254,11 +263,11 @@ void lock_acquire(struct lock *lock)
 			list_push_front(&lock->holder->donations, &curr->donation_elem);
 		else
 			list_insert_ordered(&lock->holder->donations, &curr->donation_elem, cmp_donation_priority, NULL);
-		donate_priority();
+		if (!thread_mlfqs)
+			donate_priority();
 	}
 	sema_down(&lock->semaphore); /// 락의 세마포어의 다운을 해줌
 	thread_current()->wait_on_lock = NULL;
-
 	lock->holder = thread_current(); // 락의 홀더를 현재쓰레드로 해줌
 }
 
@@ -299,10 +308,17 @@ bool lock_try_acquire(struct lock *lock) // 자원이 있을 때만, 락을 걸�
    handler. */
 void lock_release(struct lock *lock)
 {
+
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
 
 	lock->holder = NULL;
+
+	if (thread_mlfqs)
+	{
+		sema_up(&lock->semaphore);
+		return;
+	}
 
 	remove_with_lock(lock);
 	refresh_priority();
