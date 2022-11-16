@@ -196,18 +196,23 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
-	if (lock->holder != NULL)
+	if (!thread_mlfqs)
 	{
-		thread_current()->wait_on_lock = lock;
-		// thread_current()->init_priority = thread_current()->priority;
+		if (lock->holder != NULL)
+		{
+			thread_current()->wait_on_lock = lock;
+			// thread_current()->init_priority = thread_current()->priority;
 
-		list_push_back(&lock->holder->donations, &thread_current()->donation_elem);
-		donate_priority();
+			list_push_back(&lock->holder->donations, &thread_current()->donation_elem);
+			donate_priority();
+		}
 	}
 
 	sema_down(&lock->semaphore);
 
-	thread_current()->wait_on_lock = NULL;
+	if (!thread_mlfqs)
+		thread_current()->wait_on_lock = NULL;
+
 	lock->holder = thread_current();
 }
 
@@ -243,8 +248,11 @@ void lock_release(struct lock *lock)
 
 	lock->holder = NULL;
 
-	remove_with_lock(lock);
-	refresh_priority();
+	if (!thread_mlfqs)
+	{
+		remove_with_lock(lock);
+		refresh_priority();
+	}
 
 	sema_up(&lock->semaphore);
 }

@@ -10,6 +10,8 @@
         "thread.h": "c",
         "synch.h": "c",
         "stdbool.h": "c",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "interrupt.h": "c",
+        "stdint.h": "c"
     }
 }
