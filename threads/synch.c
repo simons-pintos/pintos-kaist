@@ -66,8 +66,8 @@ void sema_init(struct semaphore *sema, unsigned value)
 void sema_down(struct semaphore *sema)
 {
 	struct thread *curr = thread_current();
-	struct semaphore_elem *curr_elem = list_entry(&curr->elem, struct semaphore_elem, elem);
-	curr_elem->priority = curr->priority;
+	// struct semaphore_elem *curr_elem = list_entry(&curr->elem, struct semaphore_elem, elem);
+	// curr_elem->priority = curr->priority;
 
 	enum intr_level old_level;
 
@@ -77,7 +77,10 @@ void sema_down(struct semaphore *sema)
 	old_level = intr_disable(); // 순간 인터럽트 디스에이블로 만들어줌
 	while (sema->value == 0)	// 세마값이 0인 동안 (자원이 없는 상태라면)
 	{
-		list_insert_ordered(&sema->waiters, &curr->elem, cmp_sem_priority, NULL);
+		if (list_empty(&sema->waiters))
+			list_push_front(&sema->waiters, &curr->elem);
+		else
+			list_insert_ordered(&sema->waiters, &curr->elem, cmp_priority, NULL);
 		thread_block(); // 쓰레드를 블락상태로 만듦
 	}
 	sema->value--;			   // 세마값 1 깎음
@@ -141,7 +144,7 @@ void sema_up(struct semaphore *sema) // 세마포어를 풀어주고 (1증가), 
 	old_level = intr_disable();		 // 인터럽트 디스에이블 시켜놓음
 	if (!list_empty(&sema->waiters)) // 웨이터리스트가 비어있지 않다면,
 	{
-		list_sort(&sema->waiters, cmp_sem_priority, NULL);
+		list_sort(&sema->waiters, cmp_priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem)); // 스레드를 언블락시켜주고 레디리스트로 넣어줌
 	}
@@ -155,10 +158,16 @@ void sema_up(struct semaphore *sema) // 세마포어를 풀어주고 (1증가), 
 
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
-	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+	struct semaphore_elem * sa = list_entry(a, struct semaphore_elem, elem); 
+	struct semaphore_elem * sb = list_entry(b, struct semaphore_elem, elem);
+	
+	struct list_elem *sa_e = list_begin(&(sa->semaphore.waiters));
+	struct list_elem *sb_e = list_begin(&(sb->semaphore.waiters));
 
-	if (sa->priority > sb->priority)
+	struct thread *sa_t = list_entry(sa_e, struct thread, elem);
+	struct thread *sb_t = list_entry(sb_e, struct thread, elem);
+
+	if (sa_t->priority > sb_t->priority)
 		return true;
 	return false;
 }
@@ -237,16 +246,18 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!lock_held_by_current_thread(lock)); // 락 홀더가 현재쓰레드가 아니어야됨
 
 	struct thread *curr = thread_current();
-
 	if (lock->holder)
 	{
 		curr->wait_on_lock = lock;
 		curr->init_priority = curr->priority;
-		list_insert_ordered(&lock->holder->donations, &curr->donation_elem, cmp_donation_priority, NULL);
+		if (list_empty(&lock->holder->donations))
+			list_push_front(&lock->holder->donations, &curr->donation_elem);
+		else
+			list_insert_ordered(&lock->holder->donations, &curr->donation_elem, cmp_donation_priority, NULL);
 		donate_priority();
 	}
 	sema_down(&lock->semaphore); /// 락의 세마포어의 다운을 해줌
-	curr->wait_on_lock = NULL;
+	thread_current()->wait_on_lock = NULL;
 
 	lock->holder = thread_current(); // 락의 홀더를 현재쓰레드로 해줌
 }
@@ -299,9 +310,32 @@ void lock_release(struct lock *lock)
 	sema_up(&lock->semaphore);
 }
 
+// void donate_priority(void) // 현진
+// {
+// 	struct thread *lock_holder = thread_current()->wait_on_lock->holder;
+// 	struct thread *temp_t = lock_holder;
+
+// 	int i = 1;
+// 	while (i < 8 && temp_t->wait_on_lock != NULL)
+// 	{
+// 		if (thread_current()->priority > temp_t->priority)
+// 		{
+// 			temp_t->priority = thread_current()->priority;
+// 			temp_t = temp_t->wait_on_lock->holder;
+// 			i++;
+// 		}
+// 		else
+// 		{
+// 			break;
+// 		}
+// 	}
+
+// 	temp_t->priority = thread_current()->priority;
+// }
+
 void donate_priority(void)
 {
-	int nested_depth = 1;
+	int nested_depth = 0;
 	struct thread *curr = thread_current();
 	struct thread *lock_holder;
 
@@ -311,34 +345,15 @@ void donate_priority(void)
 			break;
 
 		lock_holder = curr->wait_on_lock->holder;
-		lock_holder->priority = curr->priority;
-		
+
+		if (curr->priority > lock_holder->priority)
+			lock_holder->priority = curr->priority;
+
 		curr = lock_holder;
 
 		nested_depth++;
 	}
 }
-
-// void donate_priority(void)
-// {
-// 	int nested_depth = 1;
-// 	struct thread *curr = thread_current();
-// 	struct thread *lock_holder;
-
-// 	while (nested_depth < 8)
-// 	{
-// 		if (!curr->wait_on_lock)
-// 			break;
-		
-// 		lock_holder = curr->wait_on_lock->holder;
-// 		lock_holder->priority = curr->priority;
-		
-// 		curr = lock_holder;
-
-// 		nested_depth++;
-// 	}
-// }
-
 
 void remove_with_lock(struct lock *lock)
 {
@@ -364,7 +379,7 @@ void refresh_priority(void)
 
 	if (!list_empty(&curr->donations))
 	{
-		list_sort(&curr->donations, cmp_donation_priority, NULL);		
+		list_sort(&curr->donations, cmp_donation_priority, NULL);
 		struct thread *t = list_entry(list_begin(&curr->donations), struct thread, donation_elem);
 		if (curr->priority < t->priority)
 			curr->priority = t->priority;
@@ -414,7 +429,6 @@ void cond_init(struct condition *cond)
 void cond_wait(struct condition *cond, struct lock *lock)
 {
 	struct semaphore_elem waiter;
-	waiter.priority = thread_current()->priority;
 
 	ASSERT(cond != NULL);
 	ASSERT(lock != NULL);
