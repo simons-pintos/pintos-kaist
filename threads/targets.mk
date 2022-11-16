@@ -1,6 +1,5 @@
 threads_SRC  = threads/init.c		# Main program.
 threads_SRC += threads/thread.c		# Thread management core.
-threads_SRC += threads/fixed_point.c		# Thread management core.
 threads_SRC += threads/interrupt.c	# Interrupt core.
 threads_SRC += threads/intr-stubs.S	# Interrupt stubs.
 threads_SRC += threads/synch.c		# Synchronization.

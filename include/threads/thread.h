@@ -107,6 +107,7 @@ struct thread
 
 	int nice;
 	int recent_cpu;
+	struct list_elem all_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
