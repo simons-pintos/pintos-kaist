@@ -34,7 +34,7 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list, sleep_list;
+static struct list ready_list, sleep_list, all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -201,6 +201,7 @@ void thread_init(void)
 	list_init(&ready_list);
 	list_init(&destruction_req);
 	list_init(&sleep_list);
+	list_init(&all_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -693,6 +694,8 @@ init_thread(struct thread *t, const char *name, int priority)
 
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
+
+	list_push_front(&all_list, &t->all_elem);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -823,6 +826,7 @@ do_schedule(int status)
 	{
 		struct thread *victim =
 			list_entry(list_pop_front(&destruction_req), struct thread, elem);
+		list_remove(&victim->all_elem);
 		palloc_free_page(victim);
 	}
 	thread_current()->status = status;
