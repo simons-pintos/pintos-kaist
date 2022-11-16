@@ -483,16 +483,10 @@ void refresh_priority(void)
 /* priority = PRI_MAX - (recent_cpu / 4) - (nice * 2) */
 void mlfqs_priority(struct thread *t)
 {
-	int recent_cpu = t->recent_cpu;
-	int nice = t->nice;
-
-	if (thread_current() == idle_thread)
+	if (t == idle_thread)
 		return;
 
-	int priority = sub_mixed(-sub_mixed(div_mixed(recent_cpu, 4), PRI_MAX), (nice * 2));
-	priority = fp_to_int_round(priority);
-
-	thread_set_priority(priority);
+	t->priority = fp_to_int(add_mixed(div_mixed(t->recent_cpu, -4), PRI_MAX - t->nice * 2));
 }
 
 /* recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice */
@@ -501,11 +495,10 @@ void mlfqs_recent_cpu(struct thread *t)
 	int recent_cpu = t->recent_cpu;
 	int nice = t->nice;
 
-	if (thread_current() == idle_thread)
+	if (t == idle_thread)
 		return;
 
-	recent_cpu = add_mixed(mul_fp(div_fp((2 * load_avg), (2 * load_avg + 1)), recent_cpu), nice);
-	t->recent_cpu = recent_cpu;
+	t->recent_cpu = add_mixed(mul_fp(div_fp(mul_mixed(load_avg, 2), add_mixed(mul_mixed(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
 
 /* load_avg = (59/60) * load_avg + (1/60) * ready_threads
@@ -514,26 +507,12 @@ void mlfqs_load_avg(void)
 {
 	int ready_threads;
 	if (thread_current() == idle_thread)
-	{
 		ready_threads = 0;
-	}
 	else
-	{
 		ready_threads = list_size(&ready_list) + 1;
-	}
 
 	int load_avg_coef = div_mixed(int_to_fp(59), 60);
-	// int ready_threads_coef = div_mixed(F, 60);
-
-	// load_avg = add_fp(mul_fp(load_avg_coef, load_avg), mul_mixed(ready_threads_coef, ready_threads));
 	load_avg = add_fp(mul_fp(load_avg_coef, load_avg), div_mixed(int_to_fp(ready_threads), 60));
-
-	// int temp = add_fp(mul_fp(load_avg_coef, load_avg), mul_mixed(ready_threads_coef, ready_threads));
-
-	// if (temp < 0)
-	// 	return;
-
-	// load_avg = temp;
 }
 
 void mlfqs_increment(void)
@@ -544,19 +523,26 @@ void mlfqs_increment(void)
 	thread_current()->recent_cpu = add_fp(thread_current()->recent_cpu, F);
 }
 
-void mlfqs_recalc(void)
+void mlfqs_recalc_recent_cpu(void)
 {
-	struct list_elem *temp_elem = list_begin(&ready_list);
-	struct thread *temp_t = thread_current();
+	struct list_elem *temp_elem = list_begin(&all_list);
 
-	mlfqs_recent_cpu(temp_t);
-	mlfqs_priority(temp_t);
-
-	while (temp_elem != list_tail(&ready_list))
+	while (temp_elem != list_tail(&all_list))
 	{
-		temp_t = list_entry(temp_elem, struct thread, elem);
-
+		struct thread *temp_t = list_entry(temp_elem, struct thread, all_elem);
 		mlfqs_recent_cpu(temp_t);
+
+		temp_elem = temp_elem->next;
+	}
+}
+
+void mlfqs_recalc_priority(void)
+{
+	struct list_elem *temp_elem = list_begin(&all_list);
+
+	while (temp_elem != list_tail(&all_list))
+	{
+		struct thread *temp_t = list_entry(temp_elem, struct thread, all_elem);
 		mlfqs_priority(temp_t);
 
 		temp_elem = temp_elem->next;
@@ -566,9 +552,7 @@ void mlfqs_recalc(void)
 /* Sets the current thread's nice value to NICE. */
 void thread_set_nice(int nice)
 {
-	enum intr_level old_level;
-
-	old_level = intr_disable();
+	enum intr_level old_level = intr_disable();
 
 	thread_current()->nice = nice;
 	mlfqs_priority(thread_current());
@@ -581,11 +565,10 @@ void thread_set_nice(int nice)
 /* Returns the current thread's nice value. */
 int thread_get_nice(void)
 {
-	enum intr_level old_level;
-	int nice;
+	enum intr_level old_level = intr_disable();
 
-	old_level = intr_disable();
-	nice = thread_current()->nice;
+	int nice = thread_current()->nice;
+
 	intr_set_level(old_level);
 
 	return nice;
@@ -594,11 +577,10 @@ int thread_get_nice(void)
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void)
 {
-	enum intr_level old_level;
-	int result;
+	enum intr_level old_level = intr_disable();
 
-	old_level = intr_disable();
-	result = fp_to_int(mul_mixed(load_avg, 100));
+	int result = fp_to_int_round(mul_mixed(load_avg, 100));
+
 	intr_set_level(old_level);
 
 	return result;
@@ -607,11 +589,10 @@ int thread_get_load_avg(void)
 /* Returns 100 times the current thread's recent_cpu value(반올림) */
 int thread_get_recent_cpu(void)
 {
-	enum intr_level old_level;
-	int result;
+	enum intr_level old_level = intr_disable();
 
-	old_level = intr_disable();
-	result = fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
+	int result = fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
+
 	intr_set_level(old_level);
 
 	return result;
