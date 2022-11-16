@@ -485,7 +485,8 @@ void mlfqs_priority(struct thread *t)
 	int recent_cpu = t->recent_cpu;
 	int nice = t->nice;
 
-	ASSERT(thread_current() != idle_thread)
+	if (thread_current() == idle_thread)
+		return;
 
 	int priority = sub_mixed(-sub_mixed(div_mixed(recent_cpu, 4), PRI_MAX), (nice * 2));
 	priority = fp_to_int_round(priority);
@@ -499,7 +500,8 @@ void mlfqs_recent_cpu(struct thread *t)
 	int recent_cpu = t->recent_cpu;
 	int nice = t->nice;
 
-	ASSERT(thread_current() != idle_thread);
+	if (thread_current() == idle_thread)
+		return;
 
 	recent_cpu = add_mixed(mul_fp(div_fp((2 * load_avg), (2 * load_avg + 1)), recent_cpu), nice);
 	t->recent_cpu = recent_cpu;
@@ -509,27 +511,55 @@ void mlfqs_recent_cpu(struct thread *t)
    ready_threads : ready_list에 있는 thread와 실행 중인 thread의 총 개수 */
 void mlfqs_load_avg(void)
 {
-	int ready_threads = list_size(&ready_list) + 1;
+	int ready_threads;
+	if (thread_current() == idle_thread)
+	{
+		ready_threads = 0;
+	}
+	else
+	{
+		ready_threads = list_size(&ready_list) + 1;
+	}
 
 	int load_avg_coef = div_mixed(int_to_fp(59), 60);
-	int ready_threads_coef = div_mixed(F, 60);
+	// int ready_threads_coef = div_mixed(F, 60);
 
-	int temp = add_fp(mul_fp(load_avg_coef, load_avg), mul_mixed(ready_threads_coef, ready_threads));
+	// load_avg = add_fp(mul_fp(load_avg_coef, load_avg), mul_mixed(ready_threads_coef, ready_threads));
+	load_avg = add_fp(mul_fp(load_avg_coef, load_avg), div_mixed(int_to_fp(ready_threads), 60));
 
-	ASSERT(temp < 0);
+	// int temp = add_fp(mul_fp(load_avg_coef, load_avg), mul_mixed(ready_threads_coef, ready_threads));
 
-	load_avg = temp;
+	// if (temp < 0)
+	// 	return;
+
+	// load_avg = temp;
 }
 
 void mlfqs_increment(void)
 {
-	ASSERT(thread_current() != idle_thread);
+	if (thread_current() == idle_thread)
+		return;
 
 	thread_current()->recent_cpu = add_fp(thread_current()->recent_cpu, F);
 }
 
 void mlfqs_recalc(void)
 {
+	struct list_elem *temp_elem = list_begin(&ready_list);
+	struct thread *temp_t = thread_current();
+
+	mlfqs_recent_cpu(temp_t);
+	mlfqs_priority(temp_t);
+
+	while (temp_elem != list_tail(&ready_list))
+	{
+		temp_t = list_entry(temp_elem, struct thread, elem);
+
+		mlfqs_recent_cpu(temp_t);
+		mlfqs_priority(temp_t);
+
+		temp_elem = temp_elem->next;
+	}
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -567,7 +597,7 @@ int thread_get_load_avg(void)
 	int result;
 
 	old_level = intr_disable();
-	result = fp_to_int_round(mul_mixed(load_avg, 100));
+	result = fp_to_int(mul_mixed(load_avg, 100));
 	intr_set_level(old_level);
 
 	return result;

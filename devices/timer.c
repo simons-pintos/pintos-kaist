@@ -127,17 +127,21 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	thread_tick();
-	mlfqs_increment();
 
-	if (ticks % 4 == 0)
+	if (thread_mlfqs)
 	{
-		mlfqs_priority(thread_current());
-	}
+		mlfqs_increment();
 
-	if (ticks % TIMER_FREQ == 0)
-	{
-		mlfqs_load_avg();
-		mlfqs_recalc();
+		if (ticks % 4 == 0)
+		{
+			mlfqs_priority(thread_current());
+		}
+
+		if (ticks % TIMER_FREQ == 0)
+		{
+			mlfqs_load_avg();
+			mlfqs_recalc();
+		}
 	}
 
 	int64_t next_tick = get_next_tick_to_awake();
