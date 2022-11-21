@@ -27,6 +27,27 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+struct thread *get_child_process(int pid)
+{
+	struct list_elem *temp_elem = temp_elem = list_begin(&thread_current()->child_list);
+
+	for (; temp_elem != list_tail(&thread_current()->child_list); temp_elem = list_next(temp_elem))
+	{
+		struct thread *temp_t = list_entry(temp_elem, struct thread, child_elem);
+
+		if (temp_t->tid == pid)
+			return temp_t;
+	}
+
+	return NULL;
+}
+
+void remove_child_process(struct thread *cp)
+{
+	list_remove(&cp->child_elem);
+	palloc_free_page(cp);
+}
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)

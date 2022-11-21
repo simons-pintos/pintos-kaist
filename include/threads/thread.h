@@ -95,6 +95,18 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 
+	struct thread *parent;
+	struct list_elem child_elem;
+	struct list child_list;
+
+	bool is_load;
+	bool is_exit;
+
+	struct semaphore exit;
+	struct semaphore load;
+
+	int exit_status;
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 	int64_t wakeup_tick;

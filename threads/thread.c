@@ -299,6 +299,16 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	t->parent = thread_current();
+
+	t->is_load = false;
+	t->is_exit = false;
+
+	sema_init(&t->load, 0);
+	sema_init(&t->exit, 0);
+
+	list_push_back(&thread_current()->child_list, &t->child_elem);
+
 	/* Add to run queue. */
 	thread_unblock(t);
 	struct thread *curr = thread_current();
@@ -677,6 +687,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->recent_cpu = RECENT_CPU_DEFAULT;
 
 	list_push_front(&all_list, &t->all_elem);
+
+	list_init(&t->child_list);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
