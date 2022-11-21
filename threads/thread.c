@@ -299,21 +299,11 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	t->parent = thread_current();
-
-	t->is_load = false;
-	t->is_exit = false;
-
-	sema_init(&t->load, 0);
-	sema_init(&t->exit, 0);
-
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 
 	/* Add to run queue. */
 	thread_unblock(t);
-	struct thread *curr = thread_current();
-	if (t->priority > curr->priority)
-		thread_yield();
+	test_max_priority();
 
 	return tid;
 }

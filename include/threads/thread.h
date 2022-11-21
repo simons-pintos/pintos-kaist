@@ -95,15 +95,9 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 
-	struct thread *parent;
+	struct intr_frame parent_if;
 	struct list_elem child_elem;
 	struct list child_list;
-
-	bool is_load;
-	bool is_exit;
-
-	struct semaphore exit;
-	struct semaphore load;
 
 	int exit_status;
 

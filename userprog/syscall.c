@@ -27,7 +27,8 @@ void syscall_handler(struct intr_frame *);
 
 void halt(void);
 void exit(int status);
-tid_t exec(const char *cmd_line);
+tid_t fork(const char *thread_name, struct intr_frame *if_);
+tid_t exec(const char *file);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
 
@@ -44,33 +45,20 @@ void syscall_init(void)
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-void check_address(void *addr)
+void check_address(uint64_t addr)
 {
-	if (addr >= KERN_BASE)
+	if (!is_user_vaddr(addr))
 	{
 		printf("==invalid address==\n");
 		thread_exit();
 	}
 }
 
-void get_argument(struct intr_frame *if_, uint64_t *argv)
-{
-	argv[0] = *(int *)if_->R.rdx;
-	argv[1] = *(int *)if_->R.rsi;
-	argv[2] = *(int *)if_->R.rdx;
-	argv[3] = *(int *)if_->R.r10;
-	argv[4] = *(int *)if_->R.r8;
-	argv[5] = *(int *)if_->R.r9;
-}
-
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
 	// TODO: Your implementation goes here.
-	printf("system call!\n");
-
-	uint64_t argv[6];
-	get_argument(f, argv);
+	// printf("system call!\n");
 
 	switch (f->R.rax)
 	{
@@ -79,19 +67,42 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 
 	case SYS_EXIT:
-		exit(argv[0]);
+		// argv[0]: int status
+		exit(f->R.rdi);
+		break;
+
+	case SYS_FORK:
+		// argv[0]: const char *thread_name
+		check_address(f->R.rdi);
+
+		fork(f->R.rdi, f);
+		break;
+
+	case SYS_EXEC:
+		// argv[0]: const char *file
+		check_address(f->R.rdi);
+
+		exec(f->R.rdi);
+		break;
+
+	case SYS_WAIT:
+		// argv[0]: pid_t pid
+		wait(f->R.rdi);
 		break;
 
 	case SYS_CREATE:
-		check_address(argv[0]);
+		// argv[0]: const char *file
+		// argv[1]: unsigned initial_size
+		check_address(f->R.rdi);
 
-		create(argv[0], argv[1]);
+		create(f->R.rdi, f->R.rsi);
 		break;
 
 	case SYS_REMOVE:
-		check_address(argv[0]);
+		// argv[0]: const char *file
+		check_address(f->R.rdi);
 
-		remove(argv[0]);
+		remove(f->R.rdi);
 		break;
 
 	default:
@@ -109,8 +120,17 @@ void halt(void)
 void exit(int status)
 {
 	struct thread *curr_t = thread_current();
-	prinf("%s: exit(%d)\n", curr_t->name, curr_t->status);
+	prinf("%s: exit(%d)\n", curr_t->name, curr_t->exit_status);
 	thread_exit();
+}
+
+tid_t fork(const char *thread_name, struct intr_frame *if_)
+{
+	return process_fork(thread_name, if_);
+}
+
+tid_t exec(const char *file)
+{
 }
 
 bool create(const char *file, unsigned initial_size)

@@ -12,6 +12,8 @@
         "stdbool.h": "c",
         "stddef.h": "c",
         "interrupt.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "*.inc": "c",
+        "syscall.h": "c"
     }
 }
