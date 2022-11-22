@@ -35,11 +35,15 @@ int wait(tid_t pid);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
 int open(const char *file);
+int filesize(int fd);
+int read(int fd, void *buffer, unsigned size);
 int write(int fd, const void *buffer, unsigned size);
 void close(int fd);
 
 void syscall_init(void)
 {
+	lock_init(&file_lock);
+
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
@@ -127,6 +131,20 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = open(f->R.rdi);
 		break;
 
+	case SYS_FILESIZE:
+		// argv[0]: int fd
+		f->R.rax = filesize(f->R.rdi);
+		break;
+
+	case SYS_READ:
+		// argv[0]: int fd
+		// argv[1]: void *buffer
+		// argv[2]: unsigned size
+		check_address(f->R.rsi);
+
+		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+
 	case SYS_WRITE:
 		// argv[0]: int fd
 		// argv[1]: const void *buffer
@@ -193,10 +211,66 @@ int open(const char *file)
 	return fd;
 }
 
+int filesize(int fd)
+{
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return -1;
+
+	return file_length(f);
+}
+
+int read(int fd, void *buffer, unsigned size)
+{
+	check_address(buffer + size - 1);
+	int read_result;
+
+	if (fd == 0)
+	{
+		for (read_result = 0; read_result < size; read_result++)
+		{
+			char key = input_getc();
+			*(char *)buffer = key;
+			(char *)buffer++;
+
+			if (key == '\0')
+				break;
+		}
+	}
+	else
+	{
+		struct file *f = process_get_file(fd);
+		if (f == NULL)
+			return -1;
+
+		lock_acquire(&file_lock);
+		read_result = file_read(f, buffer, size);
+	}
+
+	return read_result;
+}
+
 int write(int fd, const void *buffer, unsigned size)
 {
-	putbuf(buffer, size);
-	return size;
+	int write_result;
+
+	if (fd == 1)
+	{
+		putbuf(buffer, size);
+		write_result = size;
+	}
+	else
+	{
+		struct file *f = process_get_file(fd);
+		if (f == NULL)
+			return -1;
+
+		lock_acquire(&file_lock);
+		write_result = file_write(f, buffer, size);
+		lock_release(&file_lock);
+	}
+
+	return write_result;
 }
 
 void close(int fd)
