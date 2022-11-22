@@ -52,9 +52,18 @@ int process_add_file(struct file *f)
 {
 	struct thread *curr = thread_current();
 
-	curr->fdt[(curr->fd_idx)++] = f;
+	int fd = 2;
+	while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
+		fd++;
 
-	return curr->fd_idx;
+	if (fd >= FDT_LIMIT)
+		return -1;
+
+	curr->fdt[fd] = f;
+	if (curr->fd_idx == fd)
+		curr->fd_idx++;
+
+	return fd;
 }
 
 struct file *process_get_file(int fd)
