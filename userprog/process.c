@@ -272,7 +272,7 @@ int process_exec(void *f_name)
 	success = load(file_name, &_if);
 
 	// stack에 인자 전달 확인
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, 1);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, 1);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);

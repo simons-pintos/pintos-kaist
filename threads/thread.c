@@ -301,6 +301,11 @@ tid_t thread_create(const char *name, int priority,
 
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 
+	t->fd_idx = 2;
+	t->fdt = palloc_get_page(PAL_ZERO);
+	t->fdt[0] = 0;
+	t->fdt[1] = 1;
+
 	/* Add to run queue. */
 	thread_unblock(t);
 	test_max_priority();
@@ -683,11 +688,6 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->exit_status = -1;
 
 	sema_init(&t->wait, 0);
-
-	// t->fd_idx = 2;
-	// t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
-	// t->fdt[0] = 0;
-	// t->fdt[1] = 1;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
