@@ -14,6 +14,7 @@
         "interrupt.h": "c",
         "stdint.h": "c",
         "*.inc": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "debug.h": "c"
     }
 }

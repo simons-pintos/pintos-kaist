@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -100,6 +101,8 @@ struct thread
 	struct list child_list;
 
 	int exit_status;
+
+	struct semaphore wait;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */

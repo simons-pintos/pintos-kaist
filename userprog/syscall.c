@@ -31,6 +31,7 @@ tid_t fork(const char *thread_name, struct intr_frame *if_);
 tid_t exec(const char *file);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
+int write(int fd, const void *buffer, unsigned size);
 
 void syscall_init(void)
 {
@@ -47,11 +48,8 @@ void syscall_init(void)
 
 void check_address(uint64_t addr)
 {
-	if (!is_user_vaddr(addr))
-	{
-		printf("==invalid address==\n");
-		thread_exit();
-	}
+	if (is_kernel_vaddr(addr))
+		exit(-1);
 }
 
 /* The main system call interface */
@@ -85,17 +83,17 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exec(f->R.rdi);
 		break;
 
-	case SYS_WAIT:
-		// argv[0]: pid_t pid
-		wait(f->R.rdi);
-		break;
+		// case SYS_WAIT:
+		// 	// argv[0]: pid_t pid
+		// 	wait(f->R.rdi);
+		// 	break;
 
 	case SYS_CREATE:
 		// argv[0]: const char *file
 		// argv[1]: unsigned initial_size
 		check_address(f->R.rdi);
 
-		create(f->R.rdi, f->R.rsi);
+		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 
 	case SYS_REMOVE:
@@ -107,9 +105,16 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	default:
 		break;
-	}
 
-	thread_exit();
+	case SYS_WRITE:
+		// argv[0]: int fd
+		// argv[1]: const void *buffer
+		// argv[2]: unsigned size
+		check_address(f->R.rsi);
+
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	}
 }
 
 void halt(void)
@@ -119,8 +124,9 @@ void halt(void)
 
 void exit(int status)
 {
-	struct thread *curr_t = thread_current();
-	prinf("%s: exit(%d)\n", curr_t->name, curr_t->exit_status);
+	thread_current()->exit_status = status;
+	printf("%s: exit(%d)\n", thread_name(), thread_current()->exit_status);
+
 	thread_exit();
 }
 
@@ -135,10 +141,10 @@ tid_t exec(const char *file)
 
 bool create(const char *file, unsigned initial_size)
 {
-	if (filesys_create(file, initial_size) > 0)
-		return true;
+	if (file == NULL)
+		exit(-1);
 
-	return false;
+	return filesys_create(file, initial_size);
 }
 
 bool remove(const char *file)
@@ -147,4 +153,10 @@ bool remove(const char *file)
 		return true;
 
 	return false;
+}
+
+int write(int fd, const void *buffer, unsigned size)
+{
+	putbuf(buffer, size);
+	return size;
 }
