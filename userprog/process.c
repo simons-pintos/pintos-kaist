@@ -625,7 +625,7 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 {
 	// file_name_temp = argv, count= argc, if_
 	char *arg_val[128];
-	long arg_addr[115];
+	long arg_addr[100];
 	int i = 0;
 	int j;
 	char *save_ptr;

@@ -14,7 +14,6 @@ struct semaphore
 struct semaphore_elem
 {
 	struct list_elem elem; /* List element. */
-	int priority;
 	struct semaphore semaphore; /* This semaphore. */
 };
 
