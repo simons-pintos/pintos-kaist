@@ -48,6 +48,20 @@ void remove_child_process(struct thread *cp)
 	palloc_free_page(cp);
 }
 
+int process_add_file(struct file *f)
+{
+	struct thread *curr = thread_current();
+
+	curr->fdt[(curr->fd_idx)++] = f;
+
+	return curr->fd_idx;
+}
+
+struct file *process_get_file(int fd)
+{
+	return thread_current()->fdt[fd];
+}
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
@@ -258,7 +272,7 @@ int process_exec(void *f_name)
 	success = load(file_name, &_if);
 
 	// stack에 인자 전달 확인
-	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, 1);
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, 1);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
@@ -285,7 +299,13 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 
+	if (child_tid < 0)
+		return -1;
+
 	struct thread *child = get_child_process(child_tid);
+
+	if (child == NULL)
+		return -1;
 
 	sema_down(&child->wait);
 

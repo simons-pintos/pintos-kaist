@@ -5,9 +5,11 @@
 #include "threads/thread.h"
 #include "threads/loader.h"
 #include "userprog/gdt.h"
+#include "userprog/process.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -29,8 +31,10 @@ void halt(void);
 void exit(int status);
 tid_t fork(const char *thread_name, struct intr_frame *if_);
 tid_t exec(const char *file);
+int wait(tid_t pid);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
+int open(const char *file);
 int write(int fd, const void *buffer, unsigned size);
 
 void syscall_init(void)
@@ -48,15 +52,27 @@ void syscall_init(void)
 
 void check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr))
+	if (is_kernel_vaddr(addr) || addr == NULL || pml4_get_page(thread_current()->pml4, addr) == NULL)
 		exit(-1);
 }
 
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
-	// TODO: Your implementation goes here.
-	// printf("system call!\n");
+	// SYS_HALT,		/* Halt the operating system. */
+	// SYS_EXIT,		/* Terminate this process. */
+	// SYS_FORK,		/* Clone current process. */
+	// SYS_EXEC,		/* Switch current process. */
+	// SYS_WAIT,		/* Wait for a child process to die. */
+	// SYS_CREATE,		/* Create a file. */
+	// SYS_REMOVE,		/* Delete a file. */
+	// SYS_OPEN,		/* Open a file. */
+	// SYS_FILESIZE,	/* Obtain a file's size. */
+	// SYS_READ,		/* Read from a file. */
+	// SYS_WRITE,		/* Write to a file. */
+	// SYS_SEEK,		/* Change position in a file. */
+	// SYS_TELL,		/* Report current position in a file. */
+	// SYS_CLOSE,		/* Close a file. */
 
 	switch (f->R.rax)
 	{
@@ -83,10 +99,10 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exec(f->R.rdi);
 		break;
 
-		// case SYS_WAIT:
-		// 	// argv[0]: pid_t pid
-		// 	wait(f->R.rdi);
-		// 	break;
+	case SYS_WAIT:
+		// argv[0]: tid_t pid
+		f->R.rax = wait(f->R.rdi);
+		break;
 
 	case SYS_CREATE:
 		// argv[0]: const char *file
@@ -103,7 +119,11 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		remove(f->R.rdi);
 		break;
 
-	default:
+	case SYS_OPEN:
+		// argv[0]: const char *file
+		check_address(f->R.rdi);
+
+		f->R.rax = open(f->R.rdi);
 		break;
 
 	case SYS_WRITE:
@@ -139,20 +159,29 @@ tid_t exec(const char *file)
 {
 }
 
+int wait(tid_t pid)
+{
+	return process_wait(pid);
+}
+
 bool create(const char *file, unsigned initial_size)
 {
-	if (file == NULL)
-		exit(-1);
-
 	return filesys_create(file, initial_size);
 }
 
 bool remove(const char *file)
 {
-	if (filesys_remove(file) > 0)
-		return true;
+	return filesys_remove(file);
+}
 
-	return false;
+int open(const char *file)
+{
+	struct file *f = filesys_open(file);
+	if (f == NULL)
+		return -1;
+
+	int fd = process_add_file(f);
+	return fd;
 }
 
 int write(int fd, const void *buffer, unsigned size)
