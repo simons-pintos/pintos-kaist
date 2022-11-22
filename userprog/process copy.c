@@ -179,16 +179,21 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	_if.cs = SEL_UCSEG;					  // 유저 코드 셀렉터
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+	printf("----------------check default----------------\n");
 	/* We first kill the current context */
 	process_cleanup();
 	// 새로운 실행 파일을 현재 스레드에 담기 전에 먼저 현재 process에 담긴 context를 지워준다.
 	// 지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻.
+
+	printf("----------------check before load----------------\n");
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
 	// file_name, _if를 현재 프로세스에 load.
 	// success는 bool type이니까 load에 성공하면 1, 실패하면 0 반환.
 	// 이때 file_name: f_name의 첫 문자열을 parsing하여 넘겨줘야 한다!
+
+	printf("----------------check after load----------------\n");
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name); // file_name: 프로그램 파일 받기 위해 만든 임시변수. 따라서 load 끝나면 메모리 반환.
@@ -347,8 +352,11 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 	bool success = false;	  // success는 false로 초기 설정
 	int i;
 	char file_name_temp[128];
+	printf("----------------check before file_name_temp----------------\n");
 
 	memcpy(file_name_temp, file_name, strlen(file_name) + 1);
+
+	printf("----------------check after file_name_temp----------------\n");
 
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create(); // 페이지 디렉토리 생성
@@ -359,8 +367,14 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 	char *token, *save_ptr;
 	int count = 1;
 
+	printf("----------------check before loop in load----------------\n");
+
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 		count++;
+
+	printf("----------------check after loop in load----------------\n");
+
+	printf("----------------check file_name_temp is %s, count is %d----------------\n", file_name_temp, count);
 
 	/* Open executable file. */
 	file = filesys_open(file_name); // 프로그램 파일 open
@@ -609,6 +623,7 @@ install_page(void *upage, void *kpage, bool writable)
 
 void argument_stack(char *argv, int argc, struct intr_frame *if_)
 {
+	// file_name_temp = argv, count= argc, if_
 	char *arg_val[100];
 	long arg_addr[100];
 	int i = 0;
@@ -616,27 +631,46 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	char *save_ptr;
 	char *token;
 
+	// printf("----------------argv is %s, argc is %d in func argument_stack---------------- \n", argv, argc);
+
 	for (token = strtok_r(argv, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 	{
+		// printf("----------------i is %d---------------- \n", i);
 		arg_val[i] = token;
+		// printf("----------------token is %s---------------- \n", token);
+		// printf("----------------arg_val[%d] is %s---------------- \n", i, arg_val[i]);
 		i++;
 	}
 
 	i = i - 1;
 	j = i;
+	// printf("!!!!!!!!!!----------------midle i is %d---------------- \n", i);
+	// printf("!!!!!!!!!!----------------first argc is %d---------------- \n", argc);
 
 	for (; j >= 0; j--)
 	{
+		// printf("----------------j in loop is %d---------------- \n", j);
+		// printf("----------------default rsp is %p---------------- \n", if_->rsp);
+
 		if_->rsp = if_->rsp - (strlen(arg_val[j]) + 1);
 
 		arg_addr[j] = if_->rsp;
 
+		// printf("----------------arg_addr[%d]is %p---------------- \n", j, arg_addr[j]);
+		// printf("!----------------first rsp is %p---------------- \n", if_->rsp);
+		// printf("----------------arg_val is %s, strlen is %d---------------- \n", arg_val[j], strlen(arg_val[j]));
+		// printf("----------------pointer of arg_val is %p---------------- \n", &arg_val[j]);
+
 		memcpy(if_->rsp, arg_val[j], strlen(arg_val[j]) + 1);
+
+		// printf("----------------final rsp is %p---------------- \n", if_->rsp);
+		// printf("!!!!!----------------arg_value rsp is %p---------------- \n", if_->rsp);
 	}
 
 	int remainder = if_->rsp % 8;
 	if_->rsp = if_->rsp - remainder;
 	memset(if_->rsp, 0, remainder);
+	// printf("----------------remainder rsp is %p---------------- \n", if_->rsp);
 
 	if_->rsp = if_->rsp - 8;
 	memset(if_->rsp, 0, 8);
@@ -645,12 +679,20 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	{
 		if_->rsp = if_->rsp - 8;
 
+		// printf("----------------haha second rsp is %p---------------- \n", if_->rsp);
+
+		// printf("----------------i is %d---------------- \n", i);
 		memcpy(if_->rsp, &arg_addr[i], 8);
+		// printf("@@@@@@@@@----------------arg_addr[%d] is %p---------------- \n", i, arg_addr[i]);
+
+		// printf("----------------haha third rsp is %p---------------- \n", if_->rsp);
 	}
 
+	// printf("----------------i is %d---------------- \n", i);
 
 	if_->rsp = if_->rsp - 8;
 	memset(if_->rsp, 0, 8);
+	// printf("----------------return address is %p---------------- \n", if_->rsp);
 
 	if_->R.rdi = argc;
 	if_->R.rsi = if_->rsp + 8;
