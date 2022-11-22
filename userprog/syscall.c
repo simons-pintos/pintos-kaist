@@ -36,6 +36,7 @@ bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
 int open(const char *file);
 int write(int fd, const void *buffer, unsigned size);
+void close(int fd);
 
 void syscall_init(void)
 {
@@ -134,6 +135,11 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
+
+	case SYS_CLOSE:
+		// argv[0]: int fd
+		close(f->R.rdi);
+		break;
 	}
 }
 
@@ -181,6 +187,9 @@ int open(const char *file)
 		return -1;
 
 	int fd = process_add_file(f);
+	if (fd < 2)
+		return -1;
+
 	return fd;
 }
 
@@ -188,4 +197,14 @@ int write(int fd, const void *buffer, unsigned size)
 {
 	putbuf(buffer, size);
 	return size;
+}
+
+void close(int fd)
+{
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return;
+
+	file_close(f);
+	thread_current()->fdt[fd] = NULL;
 }

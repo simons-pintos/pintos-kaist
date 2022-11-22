@@ -68,6 +68,9 @@ int process_add_file(struct file *f)
 
 struct file *process_get_file(int fd)
 {
+	if (fd < 2 || fd >= FDT_LIMIT)
+		return NULL;
+
 	return thread_current()->fdt[fd];
 }
 
