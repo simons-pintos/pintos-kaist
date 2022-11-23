@@ -222,7 +222,10 @@ bool remove(const char *file)
 
 int open(const char *file)
 {
+	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
+	lock_release(&file_lock);
+
 	if (f == NULL)
 		return -1;
 

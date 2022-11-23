@@ -499,14 +499,12 @@ load(const char *file_name, struct intr_frame *if_)
 	file = filesys_open(argv[0]);
 	if (file == NULL)
 	{
-		lock_release(&file_lock);
 		printf("load: %s: open failed\n", argv[0]);
 		goto done;
 	}
 
 	thread_current()->run_file = file;
 	file_deny_write(file);
-	lock_release(&file_lock);
 
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
@@ -528,6 +526,7 @@ load(const char *file_name, struct intr_frame *if_)
 
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
+
 		file_ofs += sizeof phdr;
 		switch (phdr.p_type)
 		{
@@ -593,6 +592,7 @@ load(const char *file_name, struct intr_frame *if_)
 done:
 	/* We arrive here whether the load is successful or not. */
 	// file_close(file);
+	lock_release(&file_lock);
 	return success;
 }
 
