@@ -130,6 +130,11 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	memcpy(&parent->parent_if, if_, sizeof(struct intr_frame));
 
 	int pid = thread_create(name, PRI_DEFAULT, __do_fork, parent);
+	if (pid == TID_ERROR)
+		return TID_ERROR;
+
+	struct thread *child = get_child_process(pid);
+	sema_down(&child->fork);
 
 	return pid;
 }
@@ -148,7 +153,7 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
 	if (is_kernel_vaddr(va))
-		return false;
+		return true;
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page(parent->pml4, va);
@@ -195,6 +200,7 @@ __do_fork(void *aux)
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
+	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -202,6 +208,7 @@ __do_fork(void *aux)
 		goto error;
 
 	process_activate(current);
+
 #ifdef VM
 	supplemental_page_table_init(&current->spt);
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
@@ -219,10 +226,14 @@ __do_fork(void *aux)
 
 	process_init();
 
+	sema_up(&current->fork);
+
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
+
 error:
+	sema_up(&current->fork);
 	thread_exit();
 }
 
@@ -310,18 +321,25 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	// printf("=====start wait=====\n");
+	// printf("=====name: %s=====\n", thread_name());
+	// printf("=====child pid: %d=====\n", child_tid);
 
 	if (child_tid < 0)
 		return -1;
 
 	struct thread *child = get_child_process(child_tid);
-
 	if (child == NULL)
 		return -1;
 
 	sema_down(&child->wait);
 
-	return -1;
+	int status = child->exit_status;
+	list_remove(&child->child_elem);
+
+	sema_up(&child->exit);
+
+	return status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -332,8 +350,6 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
-	sema_up(&thread_current()->wait);
 
 	process_cleanup();
 }

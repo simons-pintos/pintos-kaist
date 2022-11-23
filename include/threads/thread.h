@@ -105,6 +105,8 @@ struct thread
 	int exit_status;
 
 	struct semaphore wait;
+	struct semaphore fork;
+	struct semaphore exit;
 
 	int fd_idx;
 	struct file **fdt;

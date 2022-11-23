@@ -94,7 +94,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: const char *thread_name
 		check_address(f->R.rdi);
 
-		fork(f->R.rdi, f);
+		f->R.rax = fork(f->R.rdi, f);
 		break;
 
 	case SYS_EXEC:
@@ -179,7 +179,7 @@ tid_t fork(const char *thread_name, struct intr_frame *if_)
 	return process_fork(thread_name, if_);
 }
 
-tid_t exec(const char *file)
+int exec(const char *file)
 {
 }
 
