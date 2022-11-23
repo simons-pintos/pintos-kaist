@@ -256,6 +256,7 @@ int read(int fd, void *buffer, unsigned size)
 
 		lock_acquire(&file_lock);
 		read_result = file_read(f, buffer, size);
+		lock_release(&file_lock);
 	}
 
 	return read_result;
