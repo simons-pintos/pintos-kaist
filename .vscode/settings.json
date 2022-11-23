@@ -11,6 +11,8 @@
         "fixed_point.h": "c",
         "interrupt.h": "c",
         "stdbool.h": "c",
-        "file.h": "c"
+        "file.h": "c",
+        "*.inc": "c",
+        "syscall.h": "c"
     }
 }

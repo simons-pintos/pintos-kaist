@@ -7,6 +7,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "filesys/file.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -26,6 +27,7 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
+int fd_to_file(int fd);
 
 /* System call.
  *
@@ -42,6 +44,8 @@ void close(int fd);
 
 void syscall_init(void)
 {
+	lock_init(&filesys_lock);
+
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
@@ -86,6 +90,17 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	case SYS_FILESIZE:
 		f->R.rax = filesize(f->R.rdi);
+		break;
+
+	case SYS_READ:
+		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+
+	case SYS_CLOSE:
+		close(f->R.rdi);
+		break;
+
+	default:
 		break;
 	}
 
@@ -236,18 +251,112 @@ int filesize(int fd)
 
 	// Returns the size, in bytes, of the file open as fd.
 }
+
+int fd_to_file(int fd)
+{
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+		return NULL;
+
+	struct thread *t = thread_current();
+	struct file *f;
+	f = t->file_descriptor_table[fd];
+
+	return f;
+}
+
 int read(int fd, void *buffer, unsigned size)
 {
+	// if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+	// 	return -1;
+
+	// struct thread *t = thread_current();
+	// struct file *f;
+	// f = t->file_descriptor_table[fd];
+
+	// check_address(f);
+
+	struct file *f = fd_to_file(fd);
+
+	check_address(buffer);
+	check_address(buffer + size - 1);
+	check_address(f);
+
+	unsigned char *buf = buffer;
+	char key;
+
+	if (f == NULL)
+		return -1;
+
+	int i = 0;
+
+	if (size == 0)
+		return 0;
+
+	if (fd == 0)
+	{
+		while (i <= size)
+		{
+			key = input_getc();
+			buf = key;
+			buffer++;
+
+			if (key == "\0")
+				break;
+
+			i++;
+		}
+	}
+
+	else if (fd == 1)
+		return -1;
+
+	lock_acquire(&filesys_lock);
+	i = file_read(f, buffer, size);
+	lock_release(&filesys_lock);
+
+	return i;
+
 	// Reads size bytes from the file open as fd into buffer.
 	// Returns the number of bytes actually read (0 at end of file),
+
 	// or -1 if the file could not be read (due to a condition other than end of file).
+
 	// fd 0 reads from the keyboard using input_getc().
 }
+
 int write(int fd, const void *buffer, unsigned size)
 {
+	struct file *f = fd_to_file(fd);
+
+	// if (fd <= 0 || fd >= FDT_COUNT_LIMIT)
+	// 	return -0;
+
+	check_address(buffer);
+
 	if (fd == 1)
+	{
 		putbuf(buffer, size);
-	return size;
+		return size;
+	}
+
+	// struct thread *t = thread_current();
+	// struct file *f;
+	// f = t->file_descriptor_table[fd];
+
+	// check_address(f);
+	check_address(f);
+
+	if (f == NULL)
+		return 0;
+
+	if (size == 0)
+		return 0;
+
+	lock_acquire(&filesys_lock);
+	int i = file_write(f, buffer, size);
+	lock_release(&filesys_lock);
+
+	return i;
 
 	// Writes size bytes from buffer to the open file fd.
 	// Returns the number of bytes actually written, which may be less than size if some bytes could not be written.
@@ -257,6 +366,7 @@ int write(int fd, const void *buffer, unsigned size)
 	// at least as long as size is not bigger than a few hundred bytes (It is reasonable to break up larger buffers).
 	// Otherwise, lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts.
 }
+
 void seek(int fd, unsigned position)
 {
 	// Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file
@@ -272,6 +382,17 @@ unsigned tell(int fd)
 }
 void close(int fd)
 {
+	struct thread *t = thread_current();
+	struct file *f = fd_to_file(fd);
+	if (f == NULL)
+		return;
+
+	lock_acquire(&filesys_lock);
+	file_close(f);
+	lock_release(&filesys_lock);
+
+	t->file_descriptor_table[fd] = NULL;
+	
 	// Closes file descriptor fd.
 	// Exiting or terminating a process implicitly closes all its open file descriptors,
 	// as if by calling this function for each one.

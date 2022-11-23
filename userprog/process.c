@@ -56,8 +56,9 @@ tid_t process_create_initd(const char *file_name)
 	char *token, *last;
 	token = strtok_r(file_name, " ", &last);
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
+	// tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
 
-	
+
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -362,7 +363,7 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 	process_activate(thread_current()); // 페이지 테이블 활성화
 
 	char *token, *save_ptr;
-	int count = 1;
+	int count = 0;
 
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 		count++;

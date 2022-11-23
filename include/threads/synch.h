@@ -13,7 +13,7 @@ struct semaphore
 
 struct semaphore_elem
 {
-	struct list_elem elem; /* List element. */
+	struct list_elem elem;		/* List element. */
 	struct semaphore semaphore; /* This semaphore. */
 };
 
@@ -25,6 +25,8 @@ void sema_self_test(void);
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 bool cmp_donation_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 /* Lock. */
+struct lock filesys_lock;
+
 struct lock
 {
 	struct thread *holder;		/* Thread holding lock (for debugging). */

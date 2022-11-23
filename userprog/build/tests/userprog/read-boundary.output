@@ -1,0 +1,38 @@
+Kernel command line: -q -f put read-boundary put sample.txt run read-boundary
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  65433600 loops/s.
+hd0:0: detected 321 sector (160 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 110 sector (55 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+Formatting file system...done.
+Boot complete.
+Putting 'read-boundary' into the file system...
+Putting 'sample.txt' into the file system...
+Executing 'read-boundary':
+(read-boundary) begin
+(read-boundary) open "sample.txt"
+------------ size is 373 -----------
+Interrupt 0x0d (#GP General Protection Exception) at rip=800421f9d6
+ cr2=0000000000000000 error=               0
+rax 742e656c706d6173 rbx 0000000000000000 rcx 0000000000007478 rdx 0000000000007478
+rsp 0000008004244e20 rbp 0000008004244e30 rsi 0000000000007478 rdi 742e656c706d6173
+rip 000000800421f9d6 r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
+r11 0000000000000202 r12 000000800421d378 r13 0000000000000000 r14 0000000000000000
+r15 0000000000000000 rflags 00000202
+es: 001b ds: 001b cs: 0008 ss: 0010
+Kernel PANIC at ../../userprog/exception.c:97 in kill(): Kernel bug - unexpected interrupt in kernel
+Call stack: 0x80042186e4 0x800421d0ad 0x800420942e 0x800420984c 0x800421fe48 0x800421eee4 0x800421d990 0x800421d4e4 0x800421d2a1 0x400198 0x4003b8 0x400e59.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 63 ticks
+Thread: 30 idle ticks, 27 kernel ticks, 6 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 121 reads, 258 writes
+hd1:0: 110 reads, 0 writes
+Console: 1852 characters output
+Key
