@@ -363,6 +363,11 @@ void process_exit(void)
 
 	file_close(curr->run_file);
 
+	for (int i = 2; i < FDT_LIMIT; i++)
+		close(i);
+
+	palloc_free_page(curr->fdt);
+
 	process_cleanup();
 }
 
