@@ -45,8 +45,6 @@ void close(int fd);
 
 void syscall_init(void)
 {
-	lock_init(&file_lock);
-
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t)syscall_entry);

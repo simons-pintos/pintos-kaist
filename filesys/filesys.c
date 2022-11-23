@@ -21,6 +21,7 @@ void filesys_init(bool format)
 	if (filesys_disk == NULL)
 		PANIC("hd0:1 (hdb) not present, file system initialization failed");
 
+	lock_init(&file_lock);
 	inode_init();
 
 #ifdef EFILESYS

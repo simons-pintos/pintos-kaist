@@ -19,6 +19,9 @@
         "fixed_point.h": "c",
         "palloc.h": "c",
         "lib.h": "c",
-        "file.h": "c"
+        "file.h": "c",
+        "inode.h": "c",
+        "malloc.h": "c",
+        "filesys.h": "c"
     }
 }

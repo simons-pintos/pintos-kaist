@@ -111,6 +111,8 @@ struct thread
 	int fd_idx;
 	struct file **fdt;
 
+	struct file *run_file;
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 	int64_t wakeup_tick;
