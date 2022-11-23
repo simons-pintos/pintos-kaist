@@ -7,6 +7,7 @@
 #include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -40,12 +41,6 @@ struct thread *get_child_process(int pid)
 	}
 
 	return NULL;
-}
-
-void remove_child_process(struct thread *cp)
-{
-	list_remove(&cp->child_elem);
-	palloc_free_page(cp);
 }
 
 int process_add_file(struct file *f)
@@ -182,6 +177,8 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 		/* 6. TODO: if fail to insert page, do error handling. */
 		return false;
 	}
+
+	// palloc_free_page(newpage);
 
 	return true;
 }
@@ -505,7 +502,6 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	/* Open executable file. */
-	lock_acquire(&file_lock);
 	file = filesys_open(argv[0]);
 	if (file == NULL)
 	{
@@ -602,7 +598,6 @@ load(const char *file_name, struct intr_frame *if_)
 done:
 	/* We arrive here whether the load is successful or not. */
 	// file_close(file);
-	lock_release(&file_lock);
 	return success;
 }
 
