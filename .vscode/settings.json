@@ -18,6 +18,7 @@
         "debug.h": "c",
         "fixed_point.h": "c",
         "palloc.h": "c",
-        "lib.h": "c"
+        "lib.h": "c",
+        "file.h": "c"
     }
 }

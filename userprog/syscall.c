@@ -39,6 +39,8 @@ int open(const char *file);
 int filesize(int fd);
 int read(int fd, void *buffer, unsigned size);
 int write(int fd, const void *buffer, unsigned size);
+void seek(int fd, unsigned pos);
+unsigned tell(int fd);
 void close(int fd);
 
 void syscall_init(void)
@@ -153,6 +155,17 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		check_address(f->R.rsi);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+
+	case SYS_SEEK:
+		// argv[0]: int fd
+		// argv[1]: unsigned position
+		seek(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_TELL:
+		// argv[0]: int fd
+		f->R.rax = tell(f->R.rdi);
 		break;
 
 	case SYS_CLOSE:
@@ -283,6 +296,24 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 
 	return write_result;
+}
+
+void seek(int fd, unsigned pos)
+{
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return -1;
+
+	file_seek(f, pos);
+}
+
+unsigned tell(int fd)
+{
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return -1;
+
+	return file_tell(f);
 }
 
 void close(int fd)
