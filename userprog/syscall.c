@@ -102,7 +102,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: const char *file
 		check_address(f->R.rdi);
 
-		f->R.rax = exec(f->R.rdi);
+		if (exec(f->R.rdi) < 0)
+			exit(-1);
 		break;
 
 	case SYS_WAIT:
@@ -200,7 +201,7 @@ int exec(const char *file)
 	strlcpy(fn_copy, file, PGSIZE);
 
 	if (process_exec(fn_copy) < 0)
-		exit(-1);
+		return -1;
 
 	return 0;
 }
