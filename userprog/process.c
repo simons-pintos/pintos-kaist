@@ -224,6 +224,15 @@ __do_fork(void *aux)
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
+	current->fd_idx = parent->fd_idx;
+	for (int i = 2; i < parent->fd_idx; i++)
+	{
+		if (parent->fdt[i] == NULL)
+			continue;
+
+		current->fdt[i] = file_duplicate(parent->fdt[i]);
+	}
+
 	process_init();
 
 	sema_up(&current->fork);
@@ -233,6 +242,7 @@ __do_fork(void *aux)
 		do_iret(&if_);
 
 error:
+	current->exit_status = -1;
 	sema_up(&current->fork);
 	thread_exit();
 }
