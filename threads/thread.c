@@ -314,6 +314,13 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	t->file_descriptor_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->file_descriptor_table == NULL)
+		return TID_ERROR;
+	t->fd_number = 2;
+	t->file_descriptor_table[0] = 1;
+	t->file_descriptor_table[1] = 2;
+
 	/* Add to run queue. */
 	thread_unblock(t);
 	struct thread *curr = thread_current();
@@ -588,9 +595,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *); // 스위칭 정보 설정 (???)
 	t->priority = priority;							   // 프라이오티 파라미터값을 넣어줌
 	t->magic = THREAD_MAGIC;						   // 매직 값 설정
-
 	t->init_priority = priority;
 	t->wait_on_lock = NULL;
+	t->exit_status = 0;
+
 	list_init(&t->donations);
 
 	list_push_back(&all_list, &t->all_elem);

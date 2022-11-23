@@ -10,6 +10,7 @@
         "synch.h": "c",
         "fixed_point.h": "c",
         "interrupt.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "file.h": "c"
     }
 }

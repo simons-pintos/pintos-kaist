@@ -28,6 +28,9 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63	   /* Highest priority. */
 
+#define FDT_PAGES 3
+#define FDT_COUNT_LIMIT FDT_PAGES *(1<<9)
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -106,8 +109,6 @@ struct thread
 	struct list_elem elem; /* List element. */
 	int64_t wakeup_tick;
 
-	
-
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
@@ -120,6 +121,9 @@ struct thread
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
+	int exit_status;
+	struct file **file_descriptor_table;
+	int fd_number;
 };
 
 /* If false (default), use round-robin scheduler.

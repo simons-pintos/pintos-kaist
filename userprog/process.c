@@ -52,7 +52,12 @@ tid_t process_create_initd(const char *file_name)
 	strlcpy(fn_copy, file_name, PGSIZE);
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+
+	char *token, *last;
+	token = strtok_r(file_name, " ", &last);
+	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
+
+	
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -195,7 +200,7 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	if (!success)
 		return -1;
 
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* Start switched process. */
 	do_iret(&_if);
@@ -644,10 +649,8 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	for (i; i >= 0; i--)
 	{
 		if_->rsp = if_->rsp - 8;
-
 		memcpy(if_->rsp, &arg_addr[i], 8);
 	}
-
 
 	if_->rsp = if_->rsp - 8;
 	memset(if_->rsp, 0, 8);
