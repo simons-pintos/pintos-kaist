@@ -4,9 +4,10 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/loader.h"
+#include "threads/flags.h"
+#include "threads/palloc.h"
 #include "userprog/gdt.h"
 #include "userprog/process.h"
-#include "threads/flags.h"
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
@@ -30,7 +31,7 @@ void syscall_handler(struct intr_frame *);
 void halt(void);
 void exit(int status);
 tid_t fork(const char *thread_name, struct intr_frame *if_);
-tid_t exec(const char *file);
+int exec(const char *file);
 int wait(tid_t pid);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
@@ -101,7 +102,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: const char *file
 		check_address(f->R.rdi);
 
-		exec(f->R.rdi);
+		f->R.rax = exec(f->R.rdi);
 		break;
 
 	case SYS_WAIT:
@@ -181,6 +182,16 @@ tid_t fork(const char *thread_name, struct intr_frame *if_)
 
 int exec(const char *file)
 {
+	char *fn_copy = palloc_get_page(PAL_ZERO);
+	if (fn_copy == NULL)
+		return -1;
+
+	strlcpy(fn_copy, file, PGSIZE);
+
+	if (process_exec(fn_copy) < 0)
+		exit(-1);
+
+	return 0;
 }
 
 int wait(tid_t pid)
