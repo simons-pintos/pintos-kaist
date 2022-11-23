@@ -136,6 +136,9 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	struct thread *child = get_child_process(pid);
 	sema_down(&child->fork);
 
+	if (child->exit_status < 0)
+		return -1;
+
 	return pid;
 }
 
@@ -200,7 +203,6 @@ __do_fork(void *aux)
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -233,7 +235,7 @@ __do_fork(void *aux)
 		current->fdt[i] = file_duplicate(parent->fdt[i]);
 	}
 
-	process_init();
+	if_.R.rax = 0;
 
 	sema_up(&current->fork);
 
@@ -244,7 +246,7 @@ __do_fork(void *aux)
 error:
 	current->exit_status = -1;
 	sema_up(&current->fork);
-	thread_exit();
+	exit(-1);
 }
 
 void argument_stack(int argc, char **argv, struct intr_frame *_if)
@@ -369,6 +371,9 @@ void process_exit(void)
 	palloc_free_page(curr->fdt);
 
 	process_cleanup();
+
+	sema_up(&thread_current()->wait);
+	sema_down(&thread_current()->exit);
 }
 
 /* Free the current process's resources. */

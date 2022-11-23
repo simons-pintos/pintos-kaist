@@ -303,6 +303,9 @@ tid_t thread_create(const char *name, int priority,
 
 	t->fd_idx = 2;
 	t->fdt = palloc_get_page(PAL_ZERO);
+	if (t->fdt == NULL)
+		return TID_ERROR;
+
 	t->fdt[0] = 0;
 	t->fdt[1] = 1;
 
@@ -391,10 +394,6 @@ void thread_exit(void)
 #ifdef USERPROG
 	process_exit();
 #endif
-
-	sema_up(&thread_current()->wait);
-
-	sema_down(&thread_current()->exit);
 
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
@@ -688,8 +687,6 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_push_front(&all_list, &t->all_elem);
 
 	list_init(&t->child_list);
-
-	t->exit_status = -1;
 
 	sema_init(&t->wait, 0);
 	sema_init(&t->fork, 0);
