@@ -132,7 +132,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	sema_down(&child->fork);
 
 	if (child->exit_status < 0)
-		return -1;
+		return process_wait(pid);
 
 	return pid;
 }
@@ -241,7 +241,7 @@ __do_fork(void *aux)
 		do_iret(&if_);
 
 error:
-	current->exit_status = -1;
+	// current->exit_status = -1;
 	sema_up(&current->fork);
 	exit(-1);
 }
@@ -330,10 +330,6 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	// printf("=====start wait=====\n");
-	// printf("=====name: %s=====\n", thread_name());
-	// printf("=====child pid: %d=====\n", child_tid);
-
 	if (child_tid < 0)
 		return -1;
 
@@ -362,10 +358,10 @@ void process_exit(void)
 
 	file_close(curr->run_file);
 
-	for (int i = 2; i < FDT_LIMIT; i++)
+	for (int i = 2; i < curr->fd_idx; i++)
 		close(i);
 
-	palloc_free_page(curr->fdt);
+	palloc_free_multiple(curr->fdt, FDT_PAGES);
 
 	process_cleanup();
 

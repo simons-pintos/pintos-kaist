@@ -302,7 +302,7 @@ tid_t thread_create(const char *name, int priority,
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 
 	t->fd_idx = 2;
-	t->fdt = palloc_get_page(PAL_ZERO);
+	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
 	if (t->fdt == NULL)
 		return TID_ERROR;
 

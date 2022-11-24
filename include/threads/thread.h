@@ -31,7 +31,8 @@ typedef int tid_t;
 
 #define NESTED_DEPTH 8
 
-#define FDT_LIMIT (1 << 9)
+#define FDT_PAGES 3
+#define FDT_LIMIT (1 << 9) * FDT_PAGES
 
 /* A kernel thread or user process.
  *
