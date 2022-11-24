@@ -3,15 +3,6 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
-/* An open file. */
-struct file
-{
-	struct inode *inode; /* File's inode. */
-	off_t pos;			 /* Current position. */
-	bool deny_write;	 /* Has file_deny_write() been called? */
-	int dup_cnt;
-};
-
 /* Opens a file for the given INODE, of which it takes ownership,
  * and returns the new file.  Returns a null pointer if an
  * allocation fails or if INODE is null. */
@@ -24,7 +15,7 @@ file_open(struct inode *inode)
 		file->inode = inode;
 		file->pos = 0;
 		file->deny_write = false;
-		file->dup_cnt = 1;
+		file->dup_cnt = 0;
 		return file;
 	}
 	else

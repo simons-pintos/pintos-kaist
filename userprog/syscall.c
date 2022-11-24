@@ -339,25 +339,33 @@ void close(int fd)
 	if (f == NULL)
 		return;
 
-	file_close(f);
+	if (f->dup_cnt == 0)
+		file_close(f);
+	else
+		f->dup_cnt--;
+
 	thread_current()->fdt[fd] = NULL;
 }
 
 int dup2(int oldfd, int newfd)
 {
-	struct file *old_file = process_get_file(oldfd);
-	if (old_file == NULL)
+	struct file *f = process_get_file(oldfd);
+	if (f == NULL)
 		return -1;
 
-	struct file *new_file = process_get_file(newfd);
-	if (new_file != NULL)
-	{
-		if (old_file == new_file)
-			return newfd;
+	if (oldfd == newfd)
+		return newfd;
 
-		close(newfd);
-	}
+	struct thread *curr = thread_current();
 
-	thread_current()->fdt[newfd] = old_file;
+	if (f == STDIN)
+		curr->stdin_cnt++;
+	else if (f == STDOUT)
+		curr->stdout_cnt++;
+	else
+		f->dup_cnt++;
+
+	close(newfd);
+	thread_current()->fdt[newfd] = f;
 	return newfd;
 }
