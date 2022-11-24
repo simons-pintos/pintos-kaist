@@ -178,8 +178,6 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 		return false;
 	}
 
-	// palloc_free_page(newpage);
-
 	return true;
 }
 #endif
@@ -361,7 +359,7 @@ void process_exit(void)
 	for (int i = 2; i < curr->fd_idx; i++)
 		close(i);
 
-	palloc_free_multiple(curr->fdt, FDT_PAGES);
+	palloc_free_page(curr->fdt);
 
 	process_cleanup();
 

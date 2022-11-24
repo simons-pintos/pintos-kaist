@@ -28,6 +28,9 @@ void syscall_handler(struct intr_frame *);
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
+#define STDIN 1
+#define STDOUT 2
+
 void halt(void);
 void exit(int status);
 tid_t fork(const char *thread_name, struct intr_frame *if_);
