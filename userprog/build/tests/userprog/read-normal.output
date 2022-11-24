@@ -4,7 +4,7 @@ Kernel command line: -q -f put read-normal put sample.txt run read-normal
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  78540800 loops/s.
+Calibrating timer...  157081600 loops/s.
 hd0:0: detected 321 sector (160 kB) disk, model "QEMU HARDDISK", serial "QM00001"
 hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
 hd1:0: detected 105 sector (52 kB) disk, model "QEMU HARDDISK", serial "QM00003"
@@ -15,23 +15,17 @@ Putting 'sample.txt' into the file system...
 Executing 'read-normal':
 (read-normal) begin
 (read-normal) open "sample.txt" for verification
-Interrupt 0x0d (#GP General Protection Exception) at rip=80042202dd
- cr2=0000000000000000 error=               0
-rax 742e656c706d6173 rbx 0000000000000000 rcx 000000800424a000 rdx 0000000000a25310
-rsp 0000008004244eb8 rbp 0000008004244ec0 rsi 0000000000404310 rdi 742e656c706d6173
-rip 00000080042202dd r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
-r11 0000000000000212 r12 000000800421d378 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000216
-es: 001b ds: 001b cs: 0008 ss: 0010
-Kernel PANIC at ../../userprog/exception.c:97 in kill(): Kernel bug - unexpected interrupt in kernel
-Call stack: 0x80042186e4 0x800421d0ad 0x800420942e 0x800420984c 0x800421f12a 0x800421d80c 0x800421d4a9 0x800421d2a1 0x400766 0x400981 0x400111 0x40016f 0x400c10.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 61 ticks
-Thread: 30 idle ticks, 26 kernel ticks, 5 user ticks
+(read-normal) verified contents of "sample.txt"
+(read-normal) close "sample.txt"
+(read-normal) end
+read-normal: exit(0)
+Execution of 'read-normal' complete.
+Timer: 63 ticks
+Thread: 30 idle ticks, 30 kernel ticks, 3 user ticks
 hd0:0: 0 reads, 0 writes
-hd0:1: 118 reads, 248 writes
+hd0:1: 119 reads, 248 writes
 hd1:0: 105 reads, 0 writes
-Console: 1825 characters output
-Key
+Console: 1045 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

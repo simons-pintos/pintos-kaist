@@ -25,7 +25,6 @@ void sema_self_test(void);
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 bool cmp_donation_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 /* Lock. */
-struct lock filesys_lock;
 
 struct lock
 {

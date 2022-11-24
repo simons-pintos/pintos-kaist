@@ -16,23 +16,15 @@ Executing 'close-normal':
 (close-normal) begin
 (close-normal) open "sample.txt"
 (close-normal) close "sample.txt"
-Interrupt 0x0d (#GP General Protection Exception) at rip=80042202db
- cr2=0000000000000000 error=               0
-rax 742e656c706d6173 rbx 0000000000000000 rcx 00000000004039c4 rdx 0000008004244000
-rsp 0000008004244e90 rbp 0000008004244ea0 rsi 0000000000000000 rdi 742e656c706d6173
-rip 00000080042202db r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
-r11 0000000000000216 r12 000000800421d378 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000206
-es: 001b ds: 001b cs: 0008 ss: 0010
-Kernel PANIC at ../../userprog/exception.c:97 in kill(): Kernel bug - unexpected interrupt in kernel
-Call stack: 0x80042186e4 0x800421d0ad 0x800420942e 0x800420984c 0x800421f178 0x800421ef25 0x800421db26 0x800421d507 0x800421d2a1 0x400171 0x4001cf 0x400c70.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 86 ticks
-Thread: 30 idle ticks, 36 kernel ticks, 20 user ticks
+(close-normal) end
+close-normal: exit(0)
+Execution of 'close-normal' complete.
+Timer: 61 ticks
+Thread: 29 idle ticks, 29 kernel ticks, 3 user ticks
 hd0:0: 0 reads, 0 writes
 hd0:1: 111 reads, 248 writes
 hd1:0: 105 reads, 0 writes
-Console: 1845 characters output
-Key
+Console: 990 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

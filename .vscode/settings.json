@@ -13,6 +13,10 @@
         "stdbool.h": "c",
         "file.h": "c",
         "*.inc": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "thread.h": "c",
+        "off_t.h": "c",
+        "filesys.h": "c",
+        "stdint.h": "c"
     }
 }

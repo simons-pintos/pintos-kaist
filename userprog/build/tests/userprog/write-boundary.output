@@ -4,7 +4,7 @@ Kernel command line: -q -f put write-boundary put sample.txt run write-boundary
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  88371200 loops/s.
+Calibrating timer...  104755200 loops/s.
 hd0:0: detected 321 sector (160 kB) disk, model "QEMU HARDDISK", serial "QM00001"
 hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
 hd1:0: detected 109 sector (54 kB) disk, model "QEMU HARDDISK", serial "QM00003"
@@ -15,23 +15,15 @@ Putting 'sample.txt' into the file system...
 Executing 'write-boundary':
 (write-boundary) begin
 (write-boundary) open "sample.txt"
-Interrupt 0x0d (#GP General Protection Exception) at rip=800421ffca
- cr2=0000000000000000 error=               0
-rax 742e656c706d6173 rbx 0000000000000000 rcx 0000000000007478 rdx 0000000000000175
-rsp 0000008004244e50 rbp 0000008004244ea0 rsi 0000000000605f46 rdi 742e656c706d6173
-rip 000000800421ffca r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
-r11 0000000000000202 r12 000000800421d378 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000206
-es: 001b ds: 001b cs: 0008 ss: 0010
-Kernel PANIC at ../../userprog/exception.c:97 in kill(): Kernel bug - unexpected interrupt in kernel
-Call stack: 0x80042186e4 0x800421d0ad 0x800420942e 0x800420984c 0x800421ef6e 0x800421da5c 0x800421d3de 0x800421d2a1 0x40017c 0x4002d9 0x400d7a.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 62 ticks
-Thread: 30 idle ticks, 27 kernel ticks, 5 user ticks
+(write-boundary) end
+write-boundary: exit(0)
+Execution of 'write-boundary' complete.
+Timer: 59 ticks
+Thread: 30 idle ticks, 27 kernel ticks, 3 user ticks
 hd0:0: 0 reads, 0 writes
-hd0:1: 119 reads, 256 writes
+hd0:1: 120 reads, 257 writes
 hd1:0: 109 reads, 0 writes
-Console: 1808 characters output
-Key
+Console: 974 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

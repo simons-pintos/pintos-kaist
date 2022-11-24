@@ -3,11 +3,16 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "threads/loader.h"
-#include "userprog/gdt.h"
 #include "threads/flags.h"
+#include "userprog/gdt.h"
+#include "userprog/process.h"
 #include "intrinsic.h"
+#include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/palloc.h"
+#include "lib/string.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -27,7 +32,7 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
-int fd_to_file(int fd);
+struct file *fd_to_file(int fd);
 
 /* System call.
  *
@@ -100,6 +105,18 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		close(f->R.rdi);
 		break;
 
+	case SYS_SEEK:
+		seek(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_TELL:
+		f->R.rax = tell(f->R.rdi);
+		break;
+
+	case SYS_EXEC:
+		f->R.rax = exec(f->R.rdi);
+		break;
+
 	default:
 		break;
 	}
@@ -145,10 +162,23 @@ tid_t fork(const char *thread_name)
 }
 int exec(const char *cmd_line)
 {
+	check_address(cmd_line);
+	char *file_name_copy = palloc_get_page(PAL_ZERO);
+
+	if (file_name_copy == NULL)
+		return -1;
+	// strlcpy(file_name_copy, cmd_line, strlen(cmd_line) + 1);
+	strlcpy(file_name_copy, cmd_line, PGSIZE);
+
+	if (process_exec(file_name_copy) == -1)
+		exit(-1);
+
+	NOT_REACHED();
 	// Change current process to the executable whose name is given in cmd_line, passing any given arguments.
 	// This never returns if successful. Otherwise the process terminates with exit state -1, if the program cannot load or run for any reason.
 	// This function does not change the name of the thread that called exec. Please note that file descriptors remain open across an exec call.
 }
+
 int wait(tid_t pid)
 {
 	// Waits for a child process pid and retrieves the child's exit status.
@@ -199,7 +229,6 @@ bool remove(const char *file)
 }
 int open(const char *file)
 {
-
 	check_address(file);
 
 	struct thread *t = thread_current();
@@ -210,14 +239,14 @@ int open(const char *file)
 	if (f == NULL)
 		return -1;
 
-	while (t->file_descriptor_table[fd] != NULL)
+	while (t->file_descriptor_table[fd] != NULL && fd < FDT_COUNT_LIMIT)
 		fd++;
 
 	if (fd >= FDT_COUNT_LIMIT)
 		file_close(f);
 
 	t->fd_number = fd;
-	file_descriptor_table[fd] = file;
+	file_descriptor_table[fd] = f;
 
 	return fd;
 
@@ -234,25 +263,18 @@ int open(const char *file)
 
 int filesize(int fd)
 {
-	struct thread *t = thread_current();
-	struct file *f;
-
-	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
-		return -1;
-
-	f = t->file_descriptor_table[fd];
-
-	check_address(f);
+	struct file *f = get_file(fd);
 
 	if (f == NULL)
 		return -1;
 
-	return file_length(f);
+	int result = file_length(f);
 
+	return result;
 	// Returns the size, in bytes, of the file open as fd.
 }
 
-int fd_to_file(int fd)
+struct file *fd_to_file(int fd)
 {
 	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
 		return NULL;
@@ -266,6 +288,7 @@ int fd_to_file(int fd)
 
 int read(int fd, void *buffer, unsigned size)
 {
+
 	// if (fd < 0 || fd >= FDT_COUNT_LIMIT)
 	// 	return -1;
 
@@ -279,7 +302,6 @@ int read(int fd, void *buffer, unsigned size)
 
 	check_address(buffer);
 	check_address(buffer + size - 1);
-	check_address(f);
 
 	unsigned char *buf = buffer;
 	char key;
@@ -312,6 +334,7 @@ int read(int fd, void *buffer, unsigned size)
 
 	lock_acquire(&filesys_lock);
 	i = file_read(f, buffer, size);
+
 	lock_release(&filesys_lock);
 
 	return i;
@@ -328,8 +351,8 @@ int write(int fd, const void *buffer, unsigned size)
 {
 	struct file *f = fd_to_file(fd);
 
-	// if (fd <= 0 || fd >= FDT_COUNT_LIMIT)
-	// 	return -0;
+	if (fd == 0)
+		return 0;
 
 	check_address(buffer);
 
@@ -344,7 +367,7 @@ int write(int fd, const void *buffer, unsigned size)
 	// f = t->file_descriptor_table[fd];
 
 	// check_address(f);
-	check_address(f);
+	// check_address(f);
 
 	if (f == NULL)
 		return 0;
@@ -369,6 +392,15 @@ int write(int fd, const void *buffer, unsigned size)
 
 void seek(int fd, unsigned position)
 {
+	if (fd < 2)
+		return;
+	struct file *f = fd_to_file(fd);
+	if (f == NULL)
+		return;
+	check_address(f);
+
+	file_seek(f, position);
+
 	// Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file
 	// (Thus, a position of 0 is the file's start). A seek past the current end of a file is not an error.
 	// A later read obtains 0 bytes, indicating end of file. A later write extends the file, filling any unwritten gap with zeros.
@@ -377,6 +409,14 @@ void seek(int fd, unsigned position)
 }
 unsigned tell(int fd)
 {
+	if (fd < 2)
+		return;
+	struct file *f = fd_to_file(fd);
+	if (f == NULL)
+		return;
+	check_address(f);
+
+	return file_tell(f);
 	// Returns the position of the next byte to be read or written in open file fd,
 	// expressed in bytes from the beginning of the file.
 }
@@ -392,7 +432,7 @@ void close(int fd)
 	lock_release(&filesys_lock);
 
 	t->file_descriptor_table[fd] = NULL;
-	
+
 	// Closes file descriptor fd.
 	// Exiting or terminating a process implicitly closes all its open file descriptors,
 	// as if by calling this function for each one.

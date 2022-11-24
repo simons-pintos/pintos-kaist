@@ -27,6 +27,14 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+struct file *get_file(int fd)
+{
+	if (fd < 2 && fd >= FDT_COUNT_LIMIT)
+		return NULL;
+
+	return thread_current()->file_descriptor_table[fd];
+}
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
@@ -57,7 +65,6 @@ tid_t process_create_initd(const char *file_name)
 	token = strtok_r(file_name, " ", &last);
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
 	// tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
-
 
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
@@ -191,7 +198,9 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	// 지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻.
 
 	/* And then load the binary */
+
 	success = load(file_name, &_if);
+
 	// file_name, _if를 현재 프로세스에 load.
 	// success는 bool type이니까 load에 성공하면 1, 실패하면 0 반환.
 	// 이때 file_name: f_name의 첫 문자열을 parsing하여 넘겨줘야 한다!
@@ -200,6 +209,7 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	palloc_free_page(file_name); // file_name: 프로그램 파일 받기 위해 만든 임시변수. 따라서 load 끝나면 메모리 반환.
 	if (!success)
 		return -1;
+	// exit(-1);
 
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 

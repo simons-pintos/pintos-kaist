@@ -4,7 +4,7 @@ Kernel command line: -q -f put close-twice put sample.txt run close-twice
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
-Calibrating timer...  155443200 loops/s.
+Calibrating timer...  104755200 loops/s.
 hd0:0: detected 321 sector (160 kB) disk, model "QEMU HARDDISK", serial "QM00001"
 hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
 hd1:0: detected 105 sector (52 kB) disk, model "QEMU HARDDISK", serial "QM00003"
@@ -16,23 +16,16 @@ Executing 'close-twice':
 (close-twice) begin
 (close-twice) open "sample.txt"
 (close-twice) close "sample.txt"
-Interrupt 0x0d (#GP General Protection Exception) at rip=80042202da
- cr2=0000000000000000 error=               0
-rax 742e656c706d6173 rbx 0000000000000000 rcx 00000000004039f0 rdx 0000000000000010
-rsp 0000008004244e90 rbp 0000008004244ea0 rsi 0000000000000000 rdi 742e656c706d6173
-rip 00000080042202da r8 0000000000000000  r9 0000000000000000 r10 0000000000000000
-r11 0000000000000216 r12 000000800421d378 r13 0000000000000000 r14 0000000000000000
-r15 0000000000000000 rflags 00000206
-es: 001b ds: 001b cs: 0008 ss: 0010
-Kernel PANIC at ../../userprog/exception.c:97 in kill(): Kernel bug - unexpected interrupt in kernel
-Call stack: 0x80042186e4 0x800421d0ad 0x800420942e 0x800420984c 0x800421f177 0x800421ef24 0x800421db28 0x800421d507 0x800421d2a1 0x400171 0x4001fb 0x400c9c.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 85 ticks
-Thread: 30 idle ticks, 39 kernel ticks, 16 user ticks
+(close-twice) close "sample.txt" again
+(close-twice) end
+close-twice: exit(0)
+Execution of 'close-twice' complete.
+Timer: 59 ticks
+Thread: 30 idle ticks, 27 kernel ticks, 3 user ticks
 hd0:0: 0 reads, 0 writes
 hd0:1: 111 reads, 248 writes
 hd1:0: 105 reads, 0 writes
-Console: 1838 characters output
-Key
+Console: 1019 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

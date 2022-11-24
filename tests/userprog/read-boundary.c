@@ -18,13 +18,10 @@ void test_main(void)
 
   buffer = get_boundary_area() - sizeof sample / 2;
 
-  printf("------------ size is %d -----------\n", sizeof sample - 1);
 
   byte_cnt = read(handle, buffer, sizeof sample - 1);
 
-  printf("------------ handle is %d -----------\n", handle);
 
-  printf("------------ byte_cnt is %d -----------\n", byte_cnt);
 
   if (byte_cnt != sizeof sample - 1)
     fail("read() returned %d instead of %zu", byte_cnt, sizeof sample - 1);

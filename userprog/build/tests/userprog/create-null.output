@@ -15,7 +15,7 @@ Executing 'create-null':
 (create-null) begin
 create-null: exit(-1)
 Execution of 'create-null' complete.
-Timer: 59 ticks
+Timer: 60 ticks
 Thread: 30 idle ticks, 29 kernel ticks, 1 user ticks
 hd0:0: 0 reads, 0 writes
 hd0:1: 80 reads, 232 writes

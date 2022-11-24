@@ -4,7 +4,6 @@
 #include "threads/synch.h"
 
 void syscall_init(void);
-int fd_to_file(int fd);
 
 struct lock filesys_lock;
 
