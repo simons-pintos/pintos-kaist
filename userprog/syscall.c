@@ -43,6 +43,8 @@ void seek(int fd, unsigned pos);
 unsigned tell(int fd);
 void close(int fd);
 
+int dup2(int oldfd, int newfd);
+
 void syscall_init(void)
 {
 	lock_init(&file_lock);
@@ -81,6 +83,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	// SYS_SEEK,		/* Change position in a file. */
 	// SYS_TELL,		/* Report current position in a file. */
 	// SYS_CLOSE,		/* Close a file. */
+
+	// SYS_DUP2			/* Duplicate the file descriptor */
 
 	switch (f->R.rax)
 	{
@@ -172,6 +176,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_CLOSE:
 		// argv[0]: int fd
 		close(f->R.rdi);
+		break;
+
+	case SYS_DUP2:
+		// argv[0]: int oldfd
+		// argv[1]: int newfd
+		f->R.rax = dup2(f->R.rdi, f->R.rsi);
 		break;
 	}
 }
@@ -328,4 +338,23 @@ void close(int fd)
 
 	file_close(f);
 	thread_current()->fdt[fd] = NULL;
+}
+
+int dup2(int oldfd, int newfd)
+{
+	struct file *old_file = process_get_file(oldfd);
+	if (old_file == NULL)
+		return -1;
+
+	struct file *new_file = process_get_file(newfd);
+	if (new_file != NULL)
+	{
+		if (old_file == new_file)
+			return newfd;
+
+		close(newfd);
+	}
+
+	thread_current()->fdt[newfd] = old_file;
+	return newfd;
 }
