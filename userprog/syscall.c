@@ -254,6 +254,9 @@ int open(const char *file)
 
 int filesize(int fd)
 {
+	if (fd < 2)
+		return -1;
+
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return -1;
@@ -264,9 +267,14 @@ int filesize(int fd)
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer + size - 1);
+
+	struct file *f = process_get_file(fd);
+	if (f == NULL | f == STDOUT)
+		return -1;
+
 	int read_result;
 
-	if (fd == 0)
+	if (f == STDIN)
 	{
 		for (read_result = 0; read_result < size; read_result++)
 		{
@@ -280,10 +288,6 @@ int read(int fd, void *buffer, unsigned size)
 	}
 	else
 	{
-		struct file *f = process_get_file(fd);
-		if (f == NULL)
-			return -1;
-
 		lock_acquire(&file_lock);
 		read_result = file_read(f, buffer, size);
 		lock_release(&file_lock);
@@ -294,19 +298,19 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
+	struct file *f = process_get_file(fd);
+	if (f == NULL | f == STDIN)
+		return -1;
+
 	int write_result;
 
-	if (fd == 1)
+	if (f == STDOUT)
 	{
 		putbuf(buffer, size);
 		write_result = size;
 	}
 	else
 	{
-		struct file *f = process_get_file(fd);
-		if (f == NULL)
-			return -1;
-
 		lock_acquire(&file_lock);
 		write_result = file_write(f, buffer, size);
 		lock_release(&file_lock);
@@ -317,6 +321,9 @@ int write(int fd, const void *buffer, unsigned size)
 
 void seek(int fd, unsigned pos)
 {
+	if (fd < 2)
+		return -1;
+
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return -1;
@@ -326,6 +333,9 @@ void seek(int fd, unsigned pos)
 
 unsigned tell(int fd)
 {
+	if (fd < 2)
+		return -1;
+
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return -1;
@@ -335,28 +345,40 @@ unsigned tell(int fd)
 
 void close(int fd)
 {
+	struct thread *curr = thread_current();
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return;
 
-	if (f->dup_cnt == 0)
-		file_close(f);
+	if (f == STDIN)
+		curr->stdin_cnt--;
+	else if (f == STDOUT)
+		curr->stdout_cnt--;
 	else
-		f->dup_cnt--;
+	{
+		if (f->dup_cnt == 0)
+		{
+			if (fd == curr->fd_idx - 1)
+				curr->fd_idx--;
+
+			file_close(f);
+		}
+		else
+			f->dup_cnt--;
+	}
 
 	thread_current()->fdt[fd] = NULL;
 }
 
 int dup2(int oldfd, int newfd)
 {
+	struct thread *curr = thread_current();
 	struct file *f = process_get_file(oldfd);
 	if (f == NULL)
 		return -1;
 
 	if (oldfd == newfd)
 		return newfd;
-
-	struct thread *curr = thread_current();
 
 	if (f == STDIN)
 		curr->stdin_cnt++;

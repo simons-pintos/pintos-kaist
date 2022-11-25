@@ -63,7 +63,7 @@ int process_add_file(struct file *f)
 
 struct file *process_get_file(int fd)
 {
-	if (fd < 2 || fd >= FDT_LIMIT)
+	if (fd < 0 || fd >= FDT_LIMIT)
 		return NULL;
 
 	return thread_current()->fdt[fd];
@@ -182,6 +182,12 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 }
 #endif
 
+struct MapElem
+{
+	uintptr_t key;
+	uintptr_t value;
+};
+
 /* A thread function that copies parent's execution context.
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
@@ -221,25 +227,57 @@ __do_fork(void *aux)
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
-	current->fd_idx = parent->fd_idx;
-	for (int i = 2; i < parent->fd_idx; i++)
+	if (parent->fd_idx >= FDT_LIMIT)
+		goto error;
+
+	const int MAPLEN = 10;
+	struct MapElem map[10];
+	int dup_cnt = 0;
+	bool found;
+
+	for (int i = 0; i < parent->fd_idx; i++)
 	{
-		if (parent->fdt[i] == NULL)
+		struct file *f = parent->fdt[i];
+		if (f == NULL)
 			continue;
 
-		current->fdt[i] = file_duplicate(parent->fdt[i]);
+		for (int j = 0; j < MAPLEN; j++)
+		{
+			if (map[j].key == f)
+			{
+				found = true;
+				current->fdt[i] = map[j].value;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			struct file *new_f;
+			if (f > 2)
+				new_f = file_duplicate(f);
+			else
+				new_f = f;
+
+			current->fdt[i] = new_f;
+
+			if (dup_cnt < MAPLEN)
+			{
+				map[dup_cnt].key = f;
+				map[dup_cnt].value = new_f;
+			}
+		}
 	}
 
-	if_.R.rax = 0;
-
+	current->fd_idx = parent->fd_idx;
 	sema_up(&current->fork);
+	if_.R.rax = 0;
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 
 error:
-	// current->exit_status = -1;
 	sema_up(&current->fork);
 	exit(-1);
 }
