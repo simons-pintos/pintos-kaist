@@ -5,6 +5,8 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -29,7 +31,7 @@ typedef int tid_t;
 #define PRI_MAX 63	   /* Highest priority. */
 
 #define FDT_PAGES 3
-#define FDT_COUNT_LIMIT FDT_PAGES *(1<<9)
+#define FDT_COUNT_LIMIT FDT_PAGES *(1 << 9)
 
 /* A kernel thread or user process.
  *
@@ -101,6 +103,8 @@ struct thread
 	struct list donations;			// priority를 기부해준 elem들 저장
 	struct list_elem donation_elem; // 도네이션 elem
 	struct list_elem all_elem;
+	struct list child_list;		 // priority를 기부해준 elem들 저장
+	struct list_elem child_elem; // 도네이션 elem
 
 	int nice;
 	int recent_cpu;
@@ -119,11 +123,16 @@ struct thread
 #endif
 
 	/* Owned by thread.c. */
-	struct intr_frame tf; /* Information for switching */
-	unsigned magic;		  /* Detects stack overflow. */
+	struct intr_frame tf;		 /* Information for switching */
+	struct intr_frame parent_if; /* Information for switching */
+	unsigned magic;				 /* Detects stack overflow. */
 	int exit_status;
 	struct file **file_descriptor_table;
 	int fd_number;
+
+	struct semaphore fork_sema;
+	struct semaphore wait_sema;
+	struct semaphore free_sema;
 };
 
 /* If false (default), use round-robin scheduler.

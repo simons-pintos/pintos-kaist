@@ -32,7 +32,7 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
-struct file *fd_to_file(int fd);
+// struct file *fd_to_file(int fd);
 
 /* System call.
  *
@@ -106,6 +106,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 
 	case SYS_SEEK:
+		printf("*****************seek\n");
 		seek(f->R.rdi, f->R.rsi);
 		break;
 
@@ -117,12 +118,17 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = exec(f->R.rdi);
 		break;
 
+	case SYS_FORK:
+		f->R.rax = fork(f->R.rdi);
+		break;
+
+	case SYS_WAIT:
+		f->R.rax = wait(f->R.rdi);
+		break;
+
 	default:
 		break;
 	}
-
-	// printf("system call!\n");
-	// thread_exit();
 }
 
 void check_address(void *addr)
@@ -151,6 +157,9 @@ void exit(int status)
 }
 tid_t fork(const char *thread_name)
 {
+	struct thread *t = thread_current();
+	return process_fork(thread_name, &t->tf);
+
 	// Create new process which is the clone of current process with the name THREAD_NAME.
 	// You don't need to clone the value of the registers except %RBX, %RSP, %RBP, and %R12 - %R15, which are callee-saved registers.
 	// Must return pid of the child process, otherwise shouldn't be a valid pid. In child process, the return value should be 0.
@@ -181,8 +190,13 @@ int exec(const char *cmd_line)
 
 int wait(tid_t pid)
 {
+
+	return process_wait(pid);
+
 	// Waits for a child process pid and retrieves the child's exit status.
-	// If pid is still alive, waits until it terminates. Then, returns the status that pid passed to exit.
+
+	// If pid is still alive, waits until it terminates.
+	// Then, returns the status that pid passed to exit.
 	// If pid did not call exit(), but was terminated by the kernel (e.g. killed due to an exception), wait(pid) must return -1.
 	// It is perfectly legal for a parent process to wait for child processes
 	// that have already terminated by the time the parent calls wait,
@@ -276,8 +290,11 @@ int filesize(int fd)
 
 struct file *fd_to_file(int fd)
 {
-	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT || fd == NULL)
 		return NULL;
+
+	// if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+	// 	return NULL;
 
 	struct thread *t = thread_current();
 	struct file *f;
@@ -432,30 +449,4 @@ void close(int fd)
 	lock_release(&filesys_lock);
 
 	t->file_descriptor_table[fd] = NULL;
-
-	// Closes file descriptor fd.
-	// Exiting or terminating a process implicitly closes all its open file descriptors,
-	// as if by calling this function for each one.
-
-	// The file defines other syscalls.
-	// Ignore them for now. You will implement some of them in project 3 and the rest in project 4,
-	// so be sure to design your system with extensibility in mind.
-
-	// You must synchronize system calls so that any number of user processes can make them at once.
-	// In particular, it is not safe to call into the file system code provided in the filesys directory from multiple threads at once.
-	// Your system call implementation must treat the file system code as a critical section.
-	// Don't forget that process_exec() also accesses files. For now, we recommend against modifying code in the filesys directory.
-
-	// We have provided you a user-level function for each system call in lib/user/syscall.c.
-	// These provide a way for user processes to invoke each system call from a C program.
-	// Each uses a little inline assembly code to invoke the system call and (if appropriate) returns the system call's return value.
-
-	// When you're done with this part, and forevermore, Pintos should be bulletproof.
-	// Nothing that a user program can do should ever cause the OS to crash, panic, fail an assertion, or otherwise malfunction.
-	// It is important to emphasize this point: our tests will try to break your system calls in many, many ways.
-	// You need to think of all the corner cases and handle them.
-	// The sole way a user program should be able to cause the OS to halt is by invoking the halt system call.
-
-	// If a system call is passed an invalid argument, acceptable options include returning an error value
-	// (for those calls that return a value), returning an undefined value, or terminating the process.
 }

@@ -213,6 +213,7 @@ void thread_init(void)
 	list_init(&destruction_req);
 	list_init(&sleep_list);
 	list_init(&all_list);
+	// list_init(&all_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -326,6 +327,8 @@ tid_t thread_create(const char *name, int priority,
 	struct thread *curr = thread_current();
 	if (t->priority > curr->priority)
 		thread_yield();
+
+	list_push_back(&curr->child_list, &t->child_elem);
 
 	return tid;
 }
@@ -600,8 +603,12 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->exit_status = 0;
 
 	list_init(&t->donations);
-
+	list_init(&t->child_list);
 	list_push_back(&all_list, &t->all_elem);
+
+	sema_init(&t->fork_sema, 0);
+	sema_init(&t->wait_sema, 0);
+	sema_init(&t->free_sema, 0);
 
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
