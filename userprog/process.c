@@ -123,7 +123,9 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 		return TID_ERROR;
 
 	struct thread *child = get_child(pid);
+
 	sema_down(&child->fork_sema);
+
 	return pid;
 }
 
@@ -151,7 +153,7 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	newpage = palloc_get_page(PAL_USER);
 	if (newpage == NULL)
 		return false;
 
@@ -219,6 +221,8 @@ __do_fork(void *aux)
 	int fd = 2;
 	struct file *f;
 
+	current->fd_number = parent->fd_number;
+
 	for (fd; fd < FDT_COUNT_LIMIT; fd++)
 	{
 		f = parent->file_descriptor_table[fd];
@@ -228,20 +232,16 @@ __do_fork(void *aux)
 
 		current->file_descriptor_table[fd] = file_duplicate(f);
 	}
-
-	current->fd_number = parent->fd_number;
+	if_.R.rax = 0;
 
 	sema_up(&current->fork_sema);
-	if_.R.rax = 0;
-	process_init();
+	// process_init();
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 	{
-		printf("---------success--------\n");
-
 		do_iret(&if_);
-		printf("---------success--------\n");
+		NOT_REACHED();
 	}
 error:
 	current->exit_status = TID_ERROR;
@@ -288,6 +288,7 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 
 	/* Start switched process. */
 	do_iret(&_if);
+
 	NOT_REACHED();
 }
 
@@ -305,8 +306,14 @@ int process_wait(tid_t child_tid UNUSED)
 
 	struct thread *child = get_child(child_tid);
 
+	// printf("----------child_tid is %d-------------\n", child_tid);
+
 	if (child == NULL)
 		return -1;
+
+	// printf("----------child->wait_sema is %d-------------\n", child->wait_sema.value);
+	// printf("----------child->fork_sema is %d-------------\n", child->fork_sema.value);
+	// printf("----------child->free_sema is %d-------------\n", child->free_sema.value);
 
 	sema_down(&child->wait_sema);
 
@@ -327,6 +334,10 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	// for (int i = 2; i < curr->fd_number; i++)
+	// 	close(i);
+
+	// palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES);
 
 	process_cleanup();
 

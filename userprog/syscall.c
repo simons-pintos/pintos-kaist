@@ -20,7 +20,7 @@ void check_address(void *addr);
 
 void halt(void);
 void exit(int status);
-tid_t fork(const char *thread_name);
+tid_t fork(const char *thread_name, struct intr_frame *if_);
 int exec(const char *cmd_line);
 int wait(tid_t pid);
 bool create(const char *file, unsigned initial_size);
@@ -106,7 +106,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 
 	case SYS_SEEK:
-		printf("*****************seek\n");
 		seek(f->R.rdi, f->R.rsi);
 		break;
 
@@ -119,7 +118,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 
 	case SYS_FORK:
-		f->R.rax = fork(f->R.rdi);
+		f->R.rax = fork(f->R.rdi, f);
 		break;
 
 	case SYS_WAIT:
@@ -155,10 +154,10 @@ void exit(int status)
 	// If the process's parent waits for it (see below), this is the status that will be returned.
 	// Conventionally, a status of 0 indicates success and nonzero values indicate errors.
 }
-tid_t fork(const char *thread_name)
+tid_t fork(const char *thread_name, struct intr_frame *if_)
 {
 	struct thread *t = thread_current();
-	return process_fork(thread_name, &t->tf);
+	return process_fork(thread_name, if_);
 
 	// Create new process which is the clone of current process with the name THREAD_NAME.
 	// You don't need to clone the value of the registers except %RBX, %RSP, %RBP, and %R12 - %R15, which are callee-saved registers.
