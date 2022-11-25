@@ -264,7 +264,7 @@ __do_fork(void *aux)
 			if (dup_cnt < MAPLEN)
 			{
 				map[dup_cnt].key = f;
-				map[dup_cnt].value = new_f;
+				map[dup_cnt++].value = new_f;
 			}
 		}
 	}
