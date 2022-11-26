@@ -184,8 +184,8 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 
 struct MapElem
 {
-	uintptr_t key;
-	uintptr_t value;
+	struct file *key;
+	struct file *value;
 };
 
 /* A thread function that copies parent's execution context.
@@ -235,12 +235,13 @@ __do_fork(void *aux)
 	int dup_cnt = 0;
 	bool found;
 
-	for (int i = 0; i < parent->fd_idx; i++)
+	for (int i = 0; i < FDT_LIMIT; i++)
 	{
 		struct file *f = parent->fdt[i];
 		if (f == NULL)
 			continue;
 
+		found = false;
 		for (int j = 0; j < MAPLEN; j++)
 		{
 			if (map[j].key == f)
@@ -270,6 +271,9 @@ __do_fork(void *aux)
 	}
 
 	current->fd_idx = parent->fd_idx;
+	current->stdin_cnt = parent->stdin_cnt;
+	current->stdout_cnt = parent->stdout_cnt;
+
 	sema_up(&current->fork);
 	if_.R.rax = 0;
 
