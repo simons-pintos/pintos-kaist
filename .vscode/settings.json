@@ -17,6 +17,7 @@
         "thread.h": "c",
         "off_t.h": "c",
         "filesys.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "loader.h": "c"
     }
 }

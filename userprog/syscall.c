@@ -247,7 +247,10 @@ int open(const char *file)
 	struct thread *t = thread_current();
 	struct file **file_descriptor_table = t->file_descriptor_table;
 	int fd = t->fd_number;
+
+	// lock_acquire(&filesys_lock);
 	struct file *f = filesys_open(file);
+	// lock_release(&filesys_lock);
 
 	if (f == NULL)
 		return -1;
@@ -349,6 +352,7 @@ int read(int fd, void *buffer, unsigned size)
 		return -1;
 
 	lock_acquire(&filesys_lock);
+
 	i = file_read(f, buffer, size);
 
 	lock_release(&filesys_lock);
@@ -365,6 +369,7 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
+
 	struct file *f = fd_to_file(fd);
 
 	if (fd == 0)
@@ -392,6 +397,7 @@ int write(int fd, const void *buffer, unsigned size)
 		return 0;
 
 	lock_acquire(&filesys_lock);
+
 	int i = file_write(f, buffer, size);
 	lock_release(&filesys_lock);
 
@@ -413,8 +419,6 @@ void seek(int fd, unsigned position)
 	struct file *f = fd_to_file(fd);
 	if (f == NULL)
 		return;
-	check_address(f);
-
 	file_seek(f, position);
 
 	// Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file

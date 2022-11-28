@@ -32,7 +32,7 @@ struct thread *get_child(tid_t pid);
 
 struct file *get_file(int fd)
 {
-	if (fd < 2 && fd >= FDT_COUNT_LIMIT)
+	if (fd < 2 || fd >= FDT_COUNT_LIMIT)
 		return NULL;
 
 	return thread_current()->file_descriptor_table[fd];
@@ -126,6 +126,10 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 
 	sema_down(&child->fork_sema);
 
+
+	if (child->exit_status == -1)
+		return TID_ERROR;
+
 	return pid;
 }
 
@@ -215,6 +219,9 @@ __do_fork(void *aux)
 		goto error;
 
 #endif
+
+	if (parent->fd_number >= FDT_COUNT_LIMIT)
+		goto error;
 
 	current->file_descriptor_table[0] = parent->file_descriptor_table[0];
 	current->file_descriptor_table[1] = parent->file_descriptor_table[1];
@@ -308,6 +315,9 @@ int process_wait(tid_t child_tid UNUSED)
 
 	// printf("----------child_tid is %d-------------\n", child_tid);
 
+	if (child_tid < 0)
+		return -1;
+
 	if (child == NULL)
 		return -1;
 
@@ -329,6 +339,7 @@ int process_wait(tid_t child_tid UNUSED)
 void process_exit(void)
 {
 	struct thread *curr = thread_current();
+	file_close(curr->running_file);
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
@@ -337,7 +348,7 @@ void process_exit(void)
 	// for (int i = 2; i < curr->fd_number; i++)
 	// 	close(i);
 
-	// palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES);
+	palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES);
 
 	process_cleanup();
 
@@ -483,6 +494,10 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 		goto done;
 	}
 
+	t->running_file = file;
+
+	file_deny_write(t->running_file);
+
 	/* Read and verify executable header. */
 	// ELF 파일의 헤더정보를 읽어와서 저장함
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
@@ -565,7 +580,7 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close(file);
+	// file_close(file);
 	return success;
 }
 

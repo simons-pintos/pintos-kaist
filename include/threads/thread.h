@@ -133,6 +133,9 @@ struct thread
 	struct semaphore fork_sema;
 	struct semaphore wait_sema;
 	struct semaphore free_sema;
+
+
+	struct file *running_file;
 };
 
 /* If false (default), use round-robin scheduler.
