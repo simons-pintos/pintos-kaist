@@ -319,8 +319,12 @@ tid_t thread_create(const char *name, int priority,
 	if (t->file_descriptor_table == NULL)
 		return TID_ERROR;
 	t->fd_number = 2;
+	
 	t->file_descriptor_table[0] = 1;
 	t->file_descriptor_table[1] = 2;
+
+	t->stdin_count = 1;
+	t->stdout_count = 1;
 
 	/* Add to run queue. */
 	thread_unblock(t);

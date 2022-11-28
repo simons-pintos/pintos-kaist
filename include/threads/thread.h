@@ -136,6 +136,9 @@ struct thread
 
 
 	struct file *running_file;
+
+	int stdin_count;
+	int stdout_count;
 };
 
 /* If false (default), use round-robin scheduler.

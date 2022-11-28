@@ -32,6 +32,8 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
+struct file *fd_to_file(int fd);
+
 // struct file *fd_to_file(int fd);
 
 /* System call.
@@ -46,6 +48,9 @@ void close(int fd);
 #define MSR_STAR 0xc0000081			/* Segment selector msr */
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+
+const int STDIN = 1;
+const int STDOUT = 2;
 
 void syscall_init(void)
 {
@@ -125,9 +130,40 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = wait(f->R.rdi);
 		break;
 
+	case SYS_DUP2:
+		f->R.rax = dup2(f->R.rdi, f->R.rsi);
+		break;
+
 	default:
 		break;
 	}
+}
+
+int dup2(int old_fd, int new_fd)
+{
+	struct file *f = fd_to_file(old_fd);
+
+	if (f == NULL)
+		return -1;
+
+	if (old_fd == new_fd)
+		return new_fd;
+
+	struct thread *curr = thread_current();
+	struct file **file_descriptor_table = curr->file_descriptor_table;
+
+	if (file_descriptor_table == STDIN)
+		curr->stdin_count++;
+
+	else if (f == STDOUT)
+		curr->stdout_count++;
+
+	else
+		f->dup_count++;
+
+	close(new_fd);
+	curr->file_descriptor_table[new_fd] = f;
+	return new_fd;
 }
 
 void check_address(void *addr)
@@ -229,6 +265,18 @@ bool create(const char *file, unsigned initial_size)
 	// Creates a new file called file initially initial_size bytes in size.
 	// Returns true if successful, false otherwise. Creating a new file does not open it: opening the new file is a separate operation which would require a open system call.
 }
+
+bool remove_file_from_fd(int fd)
+{
+	struct file *f = fd_to_file(fd);
+	if (f == NULL)
+		return false;
+	if (remove(f))
+		return true;
+	else
+		return false;
+}
+
 bool remove(const char *file)
 {
 	check_address(file);
@@ -317,47 +365,80 @@ int read(int fd, void *buffer, unsigned size)
 
 	// check_address(f);
 
+	struct thread *t = thread_current();
 	struct file *f = fd_to_file(fd);
+	int read_result;
 
 	check_address(buffer);
 	check_address(buffer + size - 1);
 
-	unsigned char *buf = buffer;
 	char key;
 
 	if (f == NULL)
 		return -1;
 
-	int i = 0;
-
 	if (size == 0)
 		return 0;
 
-	if (fd == 0)
+	int i = 0;
+	unsigned char *buf = buffer;
+
+	//
+	// if (fd == 0)
+	// {
+	// 	while (i <= size)
+	// 	{
+	// 		key = input_getc();
+	// 		buf = key;
+	// 		buffer++;
+
+	// 		if (key == "\0")
+	// 			break;
+
+	// 		i++;
+	// 	}
+	// }
+
+	// else if (fd == 1)
+	// 	return -1;
+	//
+
+	if (f == STDIN)
 	{
-		while (i <= size)
+		if (t->stdin_count == 0)
 		{
-			key = input_getc();
-			buf = key;
-			buffer++;
+			NOT_REACHED();
+			remove_file_from_fd(fd);
+			read_result = -1;
+		}
 
-			if (key == "\0")
-				break;
+		else
+		{
 
-			i++;
+			while (i <= size)
+			{
+				key = input_getc();
+				buf = key;
+				buffer++;
+
+				if (key == "\0")
+					break;
+
+				i++;
+			}
+
+			read_result = i;
 		}
 	}
 
-	else if (fd == 1)
-		return -1;
+	else if (f == STDOUT)
+		read_result = -1;
 
 	lock_acquire(&filesys_lock);
-
-	i = file_read(f, buffer, size);
-
+	read_result = file_read(f, buffer, size);
 	lock_release(&filesys_lock);
 
-	return i;
+	return read_result;
 
 	// Reads size bytes from the file open as fd into buffer.
 	// Returns the number of bytes actually read (0 at end of file),
@@ -369,18 +450,43 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
-
-	struct file *f = fd_to_file(fd);
-
-	if (fd == 0)
-		return 0;
-
 	check_address(buffer);
 
-	if (fd == 1)
+	struct thread *t = thread_current();
+	struct file *f = fd_to_file(fd);
+	int write_result;
+
+	if (f == NULL || f == STDIN)
+		return 0;
+
+	if (fd == NULL)
+		return -1;
+
+	if (size == 0)
+		return 0;
+
+	// if (fd == 0)
+	// 	return 0;
+
+	// if (fd == 1)
+	// {
+	// 	putbuf(buffer, size);
+	// 	return size;
+	// }
+
+	if (f == STDOUT)
 	{
-		putbuf(buffer, size);
-		return size;
+		if (t->stdout_count == 0)
+		{
+			NOT_REACHED();
+			remove_file_from_fd(fd);
+			write_result = -1;
+		}
+		else
+		{
+			putbuf(buffer, size);
+			write_result = size;
+		}
 	}
 
 	// struct thread *t = thread_current();
@@ -389,19 +495,14 @@ int write(int fd, const void *buffer, unsigned size)
 
 	// check_address(f);
 	// check_address(f);
+	else
+	{
+		lock_acquire(&filesys_lock);
+		write_result = file_write(f, buffer, size);
+		lock_release(&filesys_lock);
+	}
 
-	if (f == NULL)
-		return 0;
-
-	if (size == 0)
-		return 0;
-
-	lock_acquire(&filesys_lock);
-
-	int i = file_write(f, buffer, size);
-	lock_release(&filesys_lock);
-
-	return i;
+	return write_result;
 
 	// Writes size bytes from buffer to the open file fd.
 	// Returns the number of bytes actually written, which may be less than size if some bytes could not be written.
@@ -442,10 +543,22 @@ unsigned tell(int fd)
 }
 void close(int fd)
 {
-	struct thread *t = thread_current();
 	struct file *f = fd_to_file(fd);
 	if (f == NULL)
 		return;
+
+	if (f <= 2)
+		return;
+
+	struct thread *t = thread_current();
+
+	if (f == STDIN)
+		t->stdin_count--;
+
+	else if (f == STDOUT)
+		t->stdout_count--;
+
+	remove_file_from_fd(fd);
 
 	lock_acquire(&filesys_lock);
 	file_close(f);
