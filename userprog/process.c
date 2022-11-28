@@ -47,18 +47,27 @@ int process_add_file(struct file *f)
 {
 	struct thread *curr = thread_current();
 
-	int fd = 2;
-	while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
-		fd++;
-
-	if (fd >= FDT_LIMIT)
-		return -1;
-
-	curr->fdt[fd] = f;
-	if (curr->fd_idx == fd)
+	while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
 		curr->fd_idx++;
 
-	return fd;
+	if (curr->fd_idx >= FDT_LIMIT)
+		return -1;
+
+	curr->fdt[curr->fd_idx] = f;
+	return curr->fd_idx;
+
+	// int fd = 2;
+	// while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
+	// 	fd++;
+
+	// if (fd >= FDT_LIMIT)
+	// 	return -1;
+
+	// curr->fdt[fd] = f;
+	// if (curr->fd_idx == fd)
+	// 	curr->fd_idx++;
+
+	// return fd;
 }
 
 struct file *process_get_file(int fd)
@@ -398,10 +407,10 @@ void process_exit(void)
 
 	file_close(curr->run_file);
 
-	for (int i = 2; i < curr->fd_idx; i++)
+	for (int i = 0; i < FDT_LIMIT; i++)
 		close(i);
 
-	palloc_free_page(curr->fdt);
+	palloc_free_multiple(curr->fdt, 3);
 
 	process_cleanup();
 

@@ -246,8 +246,8 @@ int open(const char *file)
 		return -1;
 
 	int fd = process_add_file(f);
-	if (fd < 2)
-		return -1;
+	if (fd == -1)
+		close(f);
 
 	return fd;
 }
@@ -269,7 +269,7 @@ int read(int fd, void *buffer, unsigned size)
 	check_address(buffer + size - 1);
 
 	struct file *f = process_get_file(fd);
-	if (f == NULL | f == STDOUT)
+	if (f == NULL || f == STDOUT)
 		return -1;
 
 	int read_result;
@@ -299,7 +299,7 @@ int read(int fd, void *buffer, unsigned size)
 int write(int fd, const void *buffer, unsigned size)
 {
 	struct file *f = process_get_file(fd);
-	if (f == NULL | f == STDIN)
+	if (f == NULL || f == STDIN)
 		return -1;
 
 	int write_result;
@@ -372,13 +372,16 @@ void close(int fd)
 
 int dup2(int oldfd, int newfd)
 {
+	if (oldfd == newfd)
+		return newfd;
+
 	struct thread *curr = thread_current();
 	struct file *f = process_get_file(oldfd);
 	if (f == NULL)
 		return -1;
 
-	if (oldfd == newfd)
-		return newfd;
+	if (newfd < 0 || newfd >= FDT_LIMIT)
+		return -1;
 
 	if (f == STDIN)
 		curr->stdin_cnt++;
@@ -388,6 +391,6 @@ int dup2(int oldfd, int newfd)
 		f->dup_cnt++;
 
 	close(newfd);
-	thread_current()->fdt[newfd] = f;
+	curr->fdt[newfd] = f;
 	return newfd;
 }
