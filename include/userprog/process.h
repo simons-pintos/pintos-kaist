@@ -12,4 +12,10 @@ void process_activate(struct thread *next);
 void argument_stack(char *argv, int argc, struct intr_frame *if_);
 struct file *get_file(int fd);
 
+struct map_elem
+{
+    uintptr_t key;
+    uintptr_t value;
+};
+
 #endif /* userprog/process.h */

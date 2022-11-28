@@ -18,6 +18,7 @@
         "off_t.h": "c",
         "filesys.h": "c",
         "stdint.h": "c",
-        "loader.h": "c"
+        "loader.h": "c",
+        "exception.h": "c"
     }
 }

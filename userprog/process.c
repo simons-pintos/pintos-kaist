@@ -127,9 +127,8 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 
 	sema_down(&child->fork_sema);
 
-
-	if (child->exit_status == -1)
-		return TID_ERROR;
+	if (child->exit_status < 0)
+		return process_wait(pid);
 
 	return pid;
 }
@@ -188,14 +187,11 @@ static void
 __do_fork(void *aux)
 {
 	struct intr_frame if_;
-
 	struct thread *parent = (struct thread *)aux;
 	struct thread *current = thread_current();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
-
-	parent_if = &parent->parent_if;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
@@ -224,25 +220,53 @@ __do_fork(void *aux)
 	if (parent->fd_number >= FDT_COUNT_LIMIT)
 		goto error;
 
-	current->file_descriptor_table[0] = parent->file_descriptor_table[0];
-	current->file_descriptor_table[1] = parent->file_descriptor_table[1];
-	int fd = 2;
+	const int MAPLEN = 10;
+	struct map_elem map[10];
+	int dup_index = 0;
+	bool found;
+
+	int i;
+	int j;
 	struct file *f;
-
-	current->fd_number = parent->fd_number;
-
-	for (fd; fd < FDT_COUNT_LIMIT; fd++)
+	struct file *new_file;
+	for (i = 0; i < FDT_COUNT_LIMIT; i++)
 	{
-		f = parent->file_descriptor_table[fd];
-
+		f = parent->file_descriptor_table[i];
 		if (f == NULL)
 			continue;
+		found = false;
+		for (j = 0; j < MAPLEN; j++)
+		{
+			if (map[j].key == f)
+			{
+				found = true;
+				current->file_descriptor_table[i] = map[j].value;
+				break;
+			}
+		}
+		if (!found)
+		{
+			if (f > 2)
+				new_file = file_duplicate(f);
+			else
+				new_file = f;
 
-		current->file_descriptor_table[fd] = file_duplicate(f);
+			current->file_descriptor_table[i] = new_file;
+			if (dup_index < MAPLEN)
+			{
+				map[dup_index].key = f;
+				map[dup_index++].value = new_file;
+			}
+		}
 	}
+	current->fd_number = parent->fd_number;
+	current->stdin_count = parent->stdin_count;
+
 	if_.R.rax = 0;
 
 	sema_up(&current->fork_sema);
+
+
 	// process_init();
 
 	/* Finally, switch to the newly created process. */
@@ -314,17 +338,11 @@ int process_wait(tid_t child_tid UNUSED)
 
 	struct thread *child = get_child(child_tid);
 
-	// printf("----------child_tid is %d-------------\n", child_tid);
-
 	if (child_tid < 0)
 		return -1;
 
 	if (child == NULL)
 		return -1;
-
-	// printf("----------child->wait_sema is %d-------------\n", child->wait_sema.value);
-	// printf("----------child->fork_sema is %d-------------\n", child->fork_sema.value);
-	// printf("----------child->free_sema is %d-------------\n", child->free_sema.value);
 
 	sema_down(&child->wait_sema);
 
@@ -346,8 +364,9 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	// for (int i = 2; i < curr->fd_number; i++)
-	// 	close(i);
+	
+	for (int i = 0; i < FDT_COUNT_LIMIT; i++)
+		close(i);
 
 	palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES);
 

@@ -192,7 +192,6 @@ void exit(int status)
 }
 tid_t fork(const char *thread_name, struct intr_frame *if_)
 {
-	struct thread *t = thread_current();
 	return process_fork(thread_name, if_);
 
 	// Create new process which is the clone of current process with the name THREAD_NAME.
@@ -268,11 +267,13 @@ bool create(const char *file, unsigned initial_size)
 
 bool remove_file_from_fd(int fd)
 {
+	// struct thread *t = thread_current();
 	struct file *f = fd_to_file(fd);
 	if (f == NULL)
 		return false;
 	if (remove(f))
 		return true;
+
 	else
 		return false;
 }
@@ -516,10 +517,10 @@ int write(int fd, const void *buffer, unsigned size)
 void seek(int fd, unsigned position)
 {
 	if (fd < 2)
-		return;
+		return -1;
 	struct file *f = fd_to_file(fd);
 	if (f == NULL)
-		return;
+		return -1;
 	file_seek(f, position);
 
 	// Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file
@@ -531,11 +532,10 @@ void seek(int fd, unsigned position)
 unsigned tell(int fd)
 {
 	if (fd < 2)
-		return;
+		return -1;
 	struct file *f = fd_to_file(fd);
 	if (f == NULL)
-		return;
-	check_address(f);
+		return -1;
 
 	return file_tell(f);
 	// Returns the position of the next byte to be read or written in open file fd,
@@ -558,11 +558,17 @@ void close(int fd)
 	else if (f == STDOUT)
 		t->stdout_count--;
 
-	remove_file_from_fd(fd);
+	else
+	{
 
-	lock_acquire(&filesys_lock);
-	file_close(f);
-	lock_release(&filesys_lock);
-
+		if (f->dup_count == 0)
+		{
+			if (fd == t->fd_number - 1)
+				t->fd_number--;
+			file_close(f);
+		}
+		else
+			f->dup_count--;
+	}
 	t->file_descriptor_table[fd] = NULL;
 }
