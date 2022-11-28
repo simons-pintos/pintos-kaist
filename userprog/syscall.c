@@ -31,6 +31,9 @@ void syscall_handler(struct intr_frame *);
 #define STDIN 1
 #define STDOUT 2
 
+struct semaphore mutex, wrt;
+int read_cnt;
+
 void halt(void);
 void exit(int status);
 tid_t fork(const char *thread_name, struct intr_frame *if_);
@@ -50,7 +53,9 @@ int dup2(int oldfd, int newfd);
 
 void syscall_init(void)
 {
-	lock_init(&file_lock);
+	sema_init(&mutex, 1);
+	sema_init(&wrt, 1);
+	read_cnt = 0;
 
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
@@ -238,9 +243,9 @@ bool remove(const char *file)
 
 int open(const char *file)
 {
-	lock_acquire(&file_lock);
+	sema_down(&wrt);
 	struct file *f = filesys_open(file);
-	lock_release(&file_lock);
+	sema_up(&wrt);
 
 	if (f == NULL)
 		return -1;
@@ -288,9 +293,19 @@ int read(int fd, void *buffer, unsigned size)
 	}
 	else
 	{
-		lock_acquire(&file_lock);
+		sema_down(&mutex);
+		read_cnt++;
+		if (read_cnt == 1)
+			sema_down(&wrt);
+		sema_up(&mutex);
+
 		read_result = file_read(f, buffer, size);
-		lock_release(&file_lock);
+
+		sema_down(&mutex);
+		read_cnt--;
+		if (read_cnt == 0)
+			sema_up(&wrt);
+		sema_up(&mutex);
 	}
 
 	return read_result;
@@ -311,9 +326,9 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 	else
 	{
-		lock_acquire(&file_lock);
+		sema_down(&wrt);
 		write_result = file_write(f, buffer, size);
-		lock_release(&file_lock);
+		sema_up(&wrt);
 	}
 
 	return write_result;
@@ -358,9 +373,7 @@ void close(int fd)
 	{
 		if (f->dup_cnt == 0)
 		{
-			if (fd == curr->fd_idx - 1)
-				curr->fd_idx--;
-
+			curr->fd_idx = fd;
 			file_close(f);
 		}
 		else

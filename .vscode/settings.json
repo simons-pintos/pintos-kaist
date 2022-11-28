@@ -22,6 +22,8 @@
         "file.h": "c",
         "inode.h": "c",
         "malloc.h": "c",
-        "filesys.h": "c"
+        "filesys.h": "c",
+        "syscall-nr.h": "c",
+        "syn-read.h": "c"
     }
 }
