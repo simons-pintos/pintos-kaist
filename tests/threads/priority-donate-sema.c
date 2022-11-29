@@ -65,6 +65,7 @@ m_thread_func (void *ls_)
   struct lock_and_sema *ls = ls_;
 
   sema_down (&ls->sema);
+  // printf("l priority : %s\n", list_entry(list_front(&ls->sema.waiters),struct thread, elem)->name);
   msg ("Thread M finished.");
 }
 
@@ -72,7 +73,7 @@ static void
 h_thread_func (void *ls_) 
 {
   struct lock_and_sema *ls = ls_;
-
+  // printf("lock holder in h %s, pri %d\n", ls->lock.holder->name, ls->lock.holder->priority);
   lock_acquire (&ls->lock);
   msg ("Thread H acquired lock.");
 

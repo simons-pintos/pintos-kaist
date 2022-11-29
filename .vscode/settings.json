@@ -1,6 +1,24 @@
 {
     "files.associations": {
         "random.h": "c",
-        "process.h": "c"
+        "process.h": "c",
+        "intr-stubs.h": "c",
+        "stdio.h": "c",
+        "flags.h": "c",
+        "intrinsic.h": "c",
+        "vaddr.h": "c",
+        "synch.h": "c",
+        "fixed_point.h": "c",
+        "interrupt.h": "c",
+        "stdbool.h": "c",
+        "file.h": "c",
+        "*.inc": "c",
+        "syscall.h": "c",
+        "thread.h": "c",
+        "off_t.h": "c",
+        "filesys.h": "c",
+        "stdint.h": "c",
+        "loader.h": "c",
+        "exception.h": "c"
     }
 }
