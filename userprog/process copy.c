@@ -6,9 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "userprog/gdt.h"
-#include "userprog/syscall.h"
 #include "userprog/tss.h"
-#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -20,7 +18,6 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -29,56 +26,6 @@ static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
-
-struct thread *get_child_process(int pid)
-{
-	struct list_elem *temp_elem = temp_elem = list_begin(&thread_current()->child_list);
-
-	for (; temp_elem != list_tail(&thread_current()->child_list); temp_elem = list_next(temp_elem))
-	{
-		struct thread *temp_t = list_entry(temp_elem, struct thread, child_elem);
-
-		if (temp_t->tid == pid)
-			return temp_t;
-	}
-
-	return NULL;
-}
-
-int process_add_file(struct file *f)
-{
-	struct thread *curr = thread_current();
-
-	while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
-		curr->fd_idx++;
-
-	if (curr->fd_idx >= FDT_LIMIT)
-		return -1;
-
-	curr->fdt[curr->fd_idx] = f;
-	return curr->fd_idx;
-
-	// int fd = 2;
-	// while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
-	// 	fd++;
-
-	// if (fd >= FDT_LIMIT)
-	// 	return -1;
-
-	// curr->fdt[fd] = f;
-	// if (curr->fd_idx == fd)
-	// 	curr->fd_idx++;
-
-	// return fd;
-}
-
-struct file *process_get_file(int fd)
-{
-	if (fd < 0 || fd >= FDT_LIMIT)
-		return NULL;
-
-	return thread_current()->fdt[fd];
-}
 
 /* General process initializer for initd and other process. */
 static void
@@ -94,7 +41,7 @@ process_init(void)
  * Notice that THIS SHOULD BE CALLED ONCE. */
 tid_t process_create_initd(const char *file_name)
 {
-	char *fn_copy, *save_ptr, *token;
+	char *fn_copy;
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -103,7 +50,6 @@ tid_t process_create_initd(const char *file_name)
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
-	strtok_r(file_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
@@ -132,20 +78,8 @@ initd(void *f_name)
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
 	/* Clone current thread to new thread.*/
-	struct thread *parent = thread_current();
-	memcpy(&parent->parent_if, if_, sizeof(struct intr_frame));
-
-	int pid = thread_create(name, PRI_DEFAULT, __do_fork, parent);
-	if (pid == TID_ERROR)
-		return TID_ERROR;
-
-	struct thread *child = get_child_process(pid);
-	sema_down(&child->fork);
-
-	if (child->exit_status < 0)
-		return process_wait(pid);
-
-	return pid;
+	return thread_create(name,
+						 PRI_DEFAULT, __do_fork, thread_current());
 }
 
 #ifndef VM
@@ -161,46 +95,26 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (is_kernel_vaddr(va))
-		return true;
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page(parent->pml4, va);
-	if (parent_page == NULL)
-		return false;
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_USER);
-	if (newpage == NULL)
-		return false;
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
-	memcpy(newpage, parent_page, PGSIZE);
-	writable = is_writable(pte);
 
-	// newpage = file_duplicate(parent_page);
-	memcpy(newpage, parent_page, PGSIZE);
-	writable = is_writable(pte);
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		/* 6. TODO: if fail to insert page, do error handling. */
-		return false;
 	}
-
 	return true;
 }
 #endif
-
-struct MapElem
-{
-	struct file *key;
-	struct file *value;
-};
 
 /* A thread function that copies parent's execution context.
  * Hint) parent->tf does not hold the userland context of the process.
@@ -213,143 +127,49 @@ __do_fork(void *aux)
 	struct thread *parent = (struct thread *)aux;
 	struct thread *current = thread_current();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = &parent->parent_if;
+	struct intr_frame *parent_if;
 	bool succ = true;
-
-	const int MAPLEN = 10;
-	struct map_elem map[10];
-	int dup_index = 0;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
-
 	if (current->pml4 == NULL)
 		goto error;
 
 	process_activate(current);
-
 #ifdef VM
 	supplemental_page_table_init(&current->spt);
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
 		goto error;
-
 #else
 	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
 		goto error;
-
 #endif
 
-	if (parent->fd_number >= FDT_COUNT_LIMIT)
-		goto error;
+	/* TODO: Your code goes here.
+	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
+	 * TODO:       in include/filesys/file.h. Note that parent should not return
+	 * TODO:       from the fork() until this function successfully duplicates
+	 * TODO:       the resources of parent.*/
 
-	if (parent->fd_idx >= FDT_LIMIT)
-		goto error;
-
-	const int MAPLEN = 10;
-	struct MapElem map[10];
-	int dup_cnt = 0;
-	bool found;
-
-	for (int i = 0; i < FDT_LIMIT; i++)
-	{
-		struct file *f = parent->fdt[i];
-		if (f == NULL)
-			continue;
-
-		found = false;
-		for (int j = 0; j < MAPLEN; j++)
-		{
-			if (map[j].key == f)
-			{
-				found = true;
-				current->fdt[i] = map[j].value;
-				break;
-			}
-		}
-
-		if (!found)
-		{
-			struct file *new_f;
-			if (f > 2)
-				new_f = file_duplicate(f);
-			else
-				new_f = f;
-
-			current->fdt[i] = new_f;
-
-			if (dup_cnt < MAPLEN)
-			{
-				map[dup_cnt].key = f;
-				map[dup_cnt++].value = new_f;
-			}
-		}
-	}
-
-	current->fd_idx = parent->fd_idx;
-	current->stdin_cnt = parent->stdin_cnt;
-	current->stdout_cnt = parent->stdout_cnt;
-
-	sema_up(&current->fork);
-	if_.R.rax = 0;
+	process_init();
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
-
 error:
-	sema_up(&current->fork);
-	exit(-1);
-}
-
-void argument_stack(int argc, char **argv, struct intr_frame *_if)
-{
-	// argument를 역순으로 stack에 push
-	for (int i = argc - 1; i > -1; i--)
-	{
-		size_t len = strlen(argv[i]) + 1; // '\0'을 포함해야하므로 +1
-		_if->rsp -= len;
-		memcpy(_if->rsp, argv[i], len);
-		argv[i] = (char *)_if->rsp; // 나중에 argument 주소 삽입을 위해 저장
-	}
-
-	// data align
-	int align = _if->rsp % 8;
-	_if->rsp -= align;
-	memset(_if->rsp, 0, align);
-
-	// argv[argc] = NULL
-	_if->rsp -= 8;
-	memset(_if->rsp, 0, 8);
-
-	// argument의 stack 주소를 역순으로 push
-	for (int i = argc - 1; i > -1; i--)
-	{
-		_if->rsp -= 8;
-		memcpy(_if->rsp, &argv[i], 8);
-	}
-
-	// fake return 주소 push
-	_if->rsp -= 8;
-	memset(_if->rsp, 0, 8);
-
-	// rdi(첫번째 인자 register)와 rsi(두번째 인자 register)에 argc와 argv 삽입
-	_if->R.rdi = argc;
-	_if->R.rsi = _if->rsp + 8;
+	thread_exit();
 }
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
-int process_exec(void *f_name)
+int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도록 프로그램을 메모리에 적재하고 실행하는 함수. 여기에 파일 네임 인자로 받아서 저장(문자열) => 근데 실행 프로그램 파일과 옵션이 분리되지 않은 상황.
 {
-	char *file_name = f_name;
+	char *file_name = f_name; // f_name은 문자열인데 위에서 (void *)로 넘겨받음! -> 문자열로 인식하기 위해서 char * 로 변환해줘야.
 	bool success;
 	int i = 0;
-
-	// char copy[128];
-	// memcpy(copy, file_name, strlen(file_name) + 1);
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -359,23 +179,28 @@ int process_exec(void *f_name)
 	_if.cs = SEL_UCSEG;					  // 유저 코드 셀렉터
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+	printf("----------------check default----------------\n");
 	/* We first kill the current context */
 	process_cleanup();
+	// 새로운 실행 파일을 현재 스레드에 담기 전에 먼저 현재 process에 담긴 context를 지워준다.
+	// 지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻.
+
+	printf("----------------check before load----------------\n");
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
+	// file_name, _if를 현재 프로세스에 load.
+	// success는 bool type이니까 load에 성공하면 1, 실패하면 0 반환.
+	// 이때 file_name: f_name의 첫 문자열을 parsing하여 넘겨줘야 한다!
 
-	// stack에 인자 전달 확인
-	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, 1);
+	printf("----------------check after load----------------\n");
 
 	/* If load failed, quit. */
-	palloc_free_page(file_name);
+	palloc_free_page(file_name); // file_name: 프로그램 파일 받기 위해 만든 임시변수. 따라서 load 끝나면 메모리 반환.
 	if (!success)
 		return -1;
 
-	// exit(-1);
-
-	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* Start switched process. */
 	do_iret(&_if);
@@ -396,21 +221,8 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	if (child_tid < 0)
-		return -1;
-
-	struct thread *child = get_child_process(child_tid);
-	if (child == NULL)
-		return -1;
-
-	sema_down(&child->wait);
-
-	int status = child->exit_status;
-	list_remove(&child->child_elem);
-
-	sema_up(&child->exit);
-
-	return status;
+	thread_set_priority(3);
+	return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -422,17 +234,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
-	file_close(curr->run_file);
-
-	for (int i = 0; i < FDT_LIMIT; i++)
-		close(i);
-
-	palloc_free_multiple(curr->fdt, 3);
-
 	process_cleanup();
-
-	sema_up(&thread_current()->wait);
-	sema_down(&thread_current()->exit);
 }
 
 /* Free the current process's resources. */
@@ -448,7 +250,7 @@ process_cleanup(void)
 	uint64_t *pml4;
 	/* Destroy the current process's page directory and switch back
 	 * to the kernel-only page directory. */
-	pml4 = curr->pml4;
+	pml4 = curr->pml4; // page map level 4
 	if (pml4 != NULL)
 	{
 		/* Correct ordering here is crucial.  We must set
@@ -541,47 +343,53 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 static bool
-load(const char *file_name, struct intr_frame *if_)
+load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가해야됨
 {
 	struct thread *t = thread_current();
-	struct ELF ehdr;
-	struct file *file = NULL;
-	off_t file_ofs;
-	bool success = false;
+	struct ELF ehdr;		  // 실행 및 로딩 가능 파일
+	struct file *file = NULL; // file은 NULL로 설정
+	off_t file_ofs;			  // 파일 오프셋
+	bool success = false;	  // success는 false로 초기 설정
 	int i;
 	char file_name_temp[128];
+	printf("----------------check before file_name_temp----------------\n");
 
 	memcpy(file_name_temp, file_name, strlen(file_name) + 1);
 
-	char *save_ptr, *token;
-	char *argv[64];
-	int argc = 0;
-
-	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
-		argv[argc++] = token;
+	printf("----------------check after file_name_temp----------------\n");
 
 	/* Allocate and activate page directory. */
-	t->pml4 = pml4_create();
+	t->pml4 = pml4_create(); // 페이지 디렉토리 생성
 	if (t->pml4 == NULL)
 		goto done;
-	process_activate(thread_current());
+	process_activate(thread_current()); // 페이지 테이블 활성화
+
+	char *token, *save_ptr;
+	int count = 1;
+
+	printf("----------------check before loop in load----------------\n");
+
+	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+		count++;
+
+	printf("----------------check after loop in load----------------\n");
+
+	printf("----------------check file_name_temp is %s, count is %d----------------\n", file_name_temp, count);
 
 	/* Open executable file. */
-	file = filesys_open(argv[0]);
+	file = filesys_open(file_name); // 프로그램 파일 open
 	if (file == NULL)
 	{
-		printf("load: %s: open failed\n", argv[0]);
+		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
-	thread_current()->run_file = file;
-	file_deny_write(file);
-
 	/* Read and verify executable header. */
+	// ELF 파일의 헤더정보를 읽어와서 저장함
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
 		|| ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Phdr) || ehdr.e_phnum > 1024)
 	{
-		printf("load: %s: error loading executable\n", argv[0]);
+		printf("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
 
@@ -597,7 +405,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
-
 		file_ofs += sizeof phdr;
 		switch (phdr.p_type)
 		{
@@ -651,18 +458,15 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	// 파싱 확인 printf
-	// printf("argc: %d\n", argc);
-	// for (int i = 0; i < argc; i++)
-	// 	printf("argv[%d]: %s\n", i, argv[i]);
-
-	argument_stack(argc, argv, if_);
+	/* TODO: Your code goes here.
+	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	argument_stack(file_name_temp, count, if_);
 
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	// file_close(file);
+	file_close(file);
 	return success;
 }
 
@@ -819,6 +623,7 @@ install_page(void *upage, void *kpage, bool writable)
 
 void argument_stack(char *argv, int argc, struct intr_frame *if_)
 {
+	// file_name_temp = argv, count= argc, if_
 	char *arg_val[100];
 	long arg_addr[100];
 	int i = 0;
@@ -826,37 +631,68 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	char *save_ptr;
 	char *token;
 
+	// printf("----------------argv is %s, argc is %d in func argument_stack---------------- \n", argv, argc);
+
 	for (token = strtok_r(argv, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 	{
+		// printf("----------------i is %d---------------- \n", i);
 		arg_val[i] = token;
+		// printf("----------------token is %s---------------- \n", token);
+		// printf("----------------arg_val[%d] is %s---------------- \n", i, arg_val[i]);
 		i++;
 	}
 
 	i = i - 1;
 	j = i;
+	// printf("!!!!!!!!!!----------------midle i is %d---------------- \n", i);
+	// printf("!!!!!!!!!!----------------first argc is %d---------------- \n", argc);
 
 	for (; j >= 0; j--)
 	{
+		// printf("----------------j in loop is %d---------------- \n", j);
+		// printf("----------------default rsp is %p---------------- \n", if_->rsp);
+
 		if_->rsp = if_->rsp - (strlen(arg_val[j]) + 1);
+
 		arg_addr[j] = if_->rsp;
+
+		// printf("----------------arg_addr[%d]is %p---------------- \n", j, arg_addr[j]);
+		// printf("!----------------first rsp is %p---------------- \n", if_->rsp);
+		// printf("----------------arg_val is %s, strlen is %d---------------- \n", arg_val[j], strlen(arg_val[j]));
+		// printf("----------------pointer of arg_val is %p---------------- \n", &arg_val[j]);
+
 		memcpy(if_->rsp, arg_val[j], strlen(arg_val[j]) + 1);
+
+		// printf("----------------final rsp is %p---------------- \n", if_->rsp);
+		// printf("!!!!!----------------arg_value rsp is %p---------------- \n", if_->rsp);
 	}
 
 	int remainder = if_->rsp % 8;
 	if_->rsp = if_->rsp - remainder;
 	memset(if_->rsp, 0, remainder);
+	// printf("----------------remainder rsp is %p---------------- \n", if_->rsp);
 
-	if_->rsp -= 8;
+	if_->rsp = if_->rsp - 8;
 	memset(if_->rsp, 0, 8);
 
 	for (i; i >= 0; i--)
 	{
 		if_->rsp = if_->rsp - 8;
+
+		// printf("----------------haha second rsp is %p---------------- \n", if_->rsp);
+
+		// printf("----------------i is %d---------------- \n", i);
 		memcpy(if_->rsp, &arg_addr[i], 8);
+		// printf("@@@@@@@@@----------------arg_addr[%d] is %p---------------- \n", i, arg_addr[i]);
+
+		// printf("----------------haha third rsp is %p---------------- \n", if_->rsp);
 	}
 
-	if_->rsp -= 8;
+	// printf("----------------i is %d---------------- \n", i);
+
+	if_->rsp = if_->rsp - 8;
 	memset(if_->rsp, 0, 8);
+	// printf("----------------return address is %p---------------- \n", if_->rsp);
 
 	if_->R.rdi = argc;
 	if_->R.rsi = if_->rsp + 8;

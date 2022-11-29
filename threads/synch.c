@@ -32,6 +32,12 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
+bool cmp_donation_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -74,6 +80,25 @@ void sema_down(struct semaphore *sema)
 	intr_set_level(old_level);
 }
 
+// void sema_down(struct semaphore *sema)
+// {
+// 	enum intr_level old_level;
+// 	struct semaphore_elem *curr_elem = list_entry(&thread_current()->elem, struct semaphore_elem, elem);
+// 	curr_elem->priority = thread_current()->priority;
+
+// 	ASSERT(sema != NULL);	 // 세마가 널이 아니여야됨
+// 	ASSERT(!intr_context()); // 외부 인터럽트를 받지 않아야됨
+
+// 	old_level = intr_disable(); // 순간 인터럽트 디스에이블로 만들어줌
+// 	while (sema->value == 0)	// 세마값이 0인 동안 (자원이 없는 상태라면)
+// 	{
+// 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_sem_priority, NULL);
+// 		thread_block(); // 쓰레드를 블락상태로 만듦
+// 	}
+// 	sema->value--;			   // 세마값 1 깎음
+// 	intr_set_level(old_level); // 다시 인터럽트 레벨 복구
+// }
+
 /* Down or "P" operation on a semaphore, but only if the
    semaphore is not already 0.  Returns true if the semaphore is
    decremented, false otherwise.
@@ -82,21 +107,21 @@ void sema_down(struct semaphore *sema)
 bool sema_try_down(struct semaphore *sema)
 {
 	enum intr_level old_level;
-	bool success;
+	bool success; // 성공값을 선언 (성공 /실패 )
 
 	ASSERT(sema != NULL);
 
 	old_level = intr_disable();
 	if (sema->value > 0)
 	{
-		sema->value--;
-		success = true;
+		sema->value--;	// 세마값을 1 깎아줌
+		success = true; // 성공
 	}
 	else
 		success = false;
 	intr_set_level(old_level);
 
-	return success;
+	return success; // 성공값 리턴
 }
 
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
