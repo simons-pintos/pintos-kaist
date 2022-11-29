@@ -33,6 +33,7 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
 struct file *fd_to_file(int fd);
+int add_file(struct file *file);
 
 // struct file *fd_to_file(int fd);
 
@@ -139,6 +140,21 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	}
 }
 
+int add_file(struct file *file)
+{
+	struct thread *t = thread_current();
+	struct file **file_descriptor_table = t->file_descriptor_table;
+
+	while (t->fd_number < FDT_COUNT_LIMIT && file_descriptor_table[t->fd_number])
+		t->fd_number++;
+
+	if (t->fd_number >= FDT_COUNT_LIMIT)
+		return -1;
+
+	file_descriptor_table[t->fd_number] = file;
+	return t->fd_number;
+}
+
 int dup2(int old_fd, int new_fd)
 {
 	struct file *f = fd_to_file(old_fd);
@@ -152,7 +168,7 @@ int dup2(int old_fd, int new_fd)
 	struct thread *curr = thread_current();
 	struct file **file_descriptor_table = curr->file_descriptor_table;
 
-	if (file_descriptor_table == STDIN)
+	if (f == STDIN)
 		curr->stdin_count++;
 
 	else if (f == STDOUT)
@@ -209,14 +225,15 @@ int exec(const char *cmd_line)
 	char *file_name_copy = palloc_get_page(PAL_ZERO);
 
 	if (file_name_copy == NULL)
-		return -1;
+		exit(-1);
 	// strlcpy(file_name_copy, cmd_line, strlen(cmd_line) + 1);
-	strlcpy(file_name_copy, cmd_line, PGSIZE);
+	strlcpy(file_name_copy, cmd_line, strlen(cmd_line) + 1);
 
 	if (process_exec(file_name_copy) == -1)
 		exit(-1);
 
 	NOT_REACHED();
+	return 0;
 	// Change current process to the executable whose name is given in cmd_line, passing any given arguments.
 	// This never returns if successful. Otherwise the process terminates with exit state -1, if the program cannot load or run for any reason.
 	// This function does not change the name of the thread that called exec. Please note that file descriptors remain open across an exec call.
@@ -257,25 +274,28 @@ int wait(tid_t pid)
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
-	if (filesys_create(file, initial_size))
-		return true;
-	else
-		return false;
+	return filesys_create(file, initial_size);
+
 	// Creates a new file called file initially initial_size bytes in size.
 	// Returns true if successful, false otherwise. Creating a new file does not open it: opening the new file is a separate operation which would require a open system call.
 }
 
-bool remove_file_from_fd(int fd)
+void remove_file_from_fd(int fd)
 {
-	// struct thread *t = thread_current();
-	struct file *f = fd_to_file(fd);
-	if (f == NULL)
-		return false;
-	if (remove(f))
-		return true;
+	struct thread *t = thread_current();
 
-	else
-		return false;
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+		return;
+
+	t->file_descriptor_table[fd] = NULL;
+	// struct file *f = fd_to_file(fd);
+	// if (f == NULL)
+	// 	return false;
+	// if (remove(f))
+	// 	return true;
+
+	// else
+	// 	return false;
 }
 
 bool remove(const char *file)
@@ -304,15 +324,22 @@ int open(const char *file)
 	if (f == NULL)
 		return -1;
 
-	while (t->file_descriptor_table[fd] != NULL && fd < FDT_COUNT_LIMIT)
-		fd++;
+	fd = add_file(f);
 
-	if (fd >= FDT_COUNT_LIMIT)
+	if (fd == -1)
 		file_close(f);
+	// while (t->file_descriptor_table[fd] != NULL && fd < FDT_COUNT_LIMIT)
+	// 	fd++;
 
-	t->fd_number = fd;
-	file_descriptor_table[fd] = f;
+	// if (fd >= FDT_COUNT_LIMIT)
+	// {
+	// 	lock_acquire(&filesys_lock);
+	// 	file_close(f);
+	// 	lock_release(&filesys_lock);
+	// }
 
+	// t->fd_number = fd;
+	// file_descriptor_table[fd] = f;
 	return fd;
 
 	// Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
@@ -328,14 +355,16 @@ int open(const char *file)
 
 int filesize(int fd)
 {
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+		return -1;
+
 	struct file *f = get_file(fd);
 
 	if (f == NULL)
 		return -1;
 
-	int result = file_length(f);
+	return file_length(f);
 
-	return result;
 	// Returns the size, in bytes, of the file open as fd.
 }
 
@@ -365,12 +394,12 @@ int read(int fd, void *buffer, unsigned size)
 	// f = t->file_descriptor_table[fd];
 
 	// check_address(f);
+	check_address(buffer);
 
 	struct thread *t = thread_current();
 	struct file *f = fd_to_file(fd);
 	int read_result;
 
-	check_address(buffer);
 	check_address(buffer + size - 1);
 
 	char key;
@@ -458,7 +487,7 @@ int write(int fd, const void *buffer, unsigned size)
 	int write_result;
 
 	if (f == NULL || f == STDIN)
-		return 0;
+		return -1;
 
 	if (fd == NULL)
 		return -1;
@@ -516,11 +545,13 @@ int write(int fd, const void *buffer, unsigned size)
 
 void seek(int fd, unsigned position)
 {
-	if (fd < 2)
-		return -1;
 	struct file *f = fd_to_file(fd);
+	if (f <= 2)
+		return;
+	// if (fd < 2)
+	// 	return -1;
 	if (f == NULL)
-		return -1;
+		return;
 	file_seek(f, position);
 
 	// Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file
@@ -531,16 +562,24 @@ void seek(int fd, unsigned position)
 }
 unsigned tell(int fd)
 {
-	if (fd < 2)
-		return -1;
 	struct file *f = fd_to_file(fd);
+	if (f <= 2)
+		return -1;
+	// if (fd < 2)
+	// 	return -1;
 	if (f == NULL)
 		return -1;
+	// if (fd < 2)
+	// 	return -1;
+	// struct file *f = fd_to_file(fd);
+	// if (f == NULL)
+	// 	return -1;
 
 	return file_tell(f);
 	// Returns the position of the next byte to be read or written in open file fd,
 	// expressed in bytes from the beginning of the file.
 }
+
 void close(int fd)
 {
 	struct file *f = fd_to_file(fd);

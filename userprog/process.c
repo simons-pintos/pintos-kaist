@@ -32,11 +32,26 @@ struct thread *get_child(tid_t pid);
 
 struct file *get_file(int fd)
 {
-	if (fd < 2 || fd >= FDT_COUNT_LIMIT)
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
 		return NULL;
 
 	return thread_current()->file_descriptor_table[fd];
 }
+
+// struct file *fd_to_file(int fd)
+// {
+// 	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+// 		return NULL;
+
+// 	// if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+// 	// 	return NULL;
+
+// 	struct thread *t = thread_current();
+// 	struct file *f;
+// 	f = t->file_descriptor_table[fd];
+
+// 	return f;
+// }
 
 struct thread *get_child(tid_t pid)
 {
@@ -73,6 +88,8 @@ process_init(void)
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
+	char *token;
+	char *last;
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -84,13 +101,16 @@ tid_t process_create_initd(const char *file_name)
 
 	/* Create a new thread to execute FILE_NAME. */
 
-	char *token, *last;
 	token = strtok_r(file_name, " ", &last);
+	// strtok_r(file_name, " ", &last);
 	tid = thread_create(token, PRI_DEFAULT, initd, fn_copy);
+	// tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+
 	// tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
 
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
+
 	return tid;
 }
 
@@ -127,8 +147,8 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 
 	sema_down(&child->fork_sema);
 
-	if (child->exit_status < 0)
-		return process_wait(pid);
+	if (child->exit_status == -1)
+		return TID_ERROR;
 
 	return pid;
 }
@@ -193,10 +213,15 @@ __do_fork(void *aux)
 	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
 
+	const int MAPLEN = 10;
+	struct map_elem map[10];
+	int dup_index = 0;
+
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
 
 	// if_.R.rax = 0;
+	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -220,9 +245,6 @@ __do_fork(void *aux)
 	if (parent->fd_number >= FDT_COUNT_LIMIT)
 		goto error;
 
-	const int MAPLEN = 10;
-	struct map_elem map[10];
-	int dup_index = 0;
 	bool found;
 
 	int i;
@@ -235,7 +257,8 @@ __do_fork(void *aux)
 		if (f == NULL)
 			continue;
 		found = false;
-		for (j = 0; j < MAPLEN; j++)
+
+		for (j = 0; j <= dup_index; j++)
 		{
 			if (map[j].key == f)
 			{
@@ -256,16 +279,13 @@ __do_fork(void *aux)
 			{
 				map[dup_index].key = f;
 				map[dup_index++].value = new_file;
+				dup_index++;
 			}
 		}
 	}
 	current->fd_number = parent->fd_number;
-	current->stdin_count = parent->stdin_count;
-
-	if_.R.rax = 0;
 
 	sema_up(&current->fork_sema);
-
 
 	// process_init();
 
@@ -289,6 +309,9 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	bool success;
 	int i = 0;
 
+	// char copy[128];
+	// memcpy(copy, file_name, strlen(file_name) + 1);
+
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -303,7 +326,7 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 	// 지운다? => 현재 프로세스에 할당된 page directory를 지운다는 뜻.
 
 	/* And then load the binary */
-
+	// success = load(copy, &_if);
 	success = load(file_name, &_if);
 
 	// file_name, _if를 현재 프로세스에 load.
@@ -312,8 +335,10 @@ int process_exec(void *f_name) // 유저가 입력한 명령어를 수행하도�
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name); // file_name: 프로그램 파일 받기 위해 만든 임시변수. 따라서 load 끝나면 메모리 반환.
+	
 	if (!success)
 		return -1;
+
 	// exit(-1);
 
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
@@ -338,14 +363,13 @@ int process_wait(tid_t child_tid UNUSED)
 
 	struct thread *child = get_child(child_tid);
 
-	if (child_tid < 0)
-		return -1;
+	// if (child_tid < 0)
+	// 	return -1;
 
 	if (child == NULL)
 		return -1;
 
 	sema_down(&child->wait_sema);
-
 	int exit_status = child->exit_status;
 	list_remove(&child->child_elem);
 
@@ -358,22 +382,22 @@ int process_wait(tid_t child_tid UNUSED)
 void process_exit(void)
 {
 	struct thread *curr = thread_current();
-	file_close(curr->running_file);
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	
+
 	for (int i = 0; i < FDT_COUNT_LIMIT; i++)
 		close(i);
 
 	palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES);
-
-	process_cleanup();
+	file_close(curr->running_file);
 
 	sema_up(&curr->wait_sema);
 	sema_down(&curr->free_sema);
+
+	process_cleanup();
 }
 
 /* Free the current process's resources. */
@@ -511,12 +535,13 @@ load(const char *file_name, struct intr_frame *if_) // parsing 기능을 추가�
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", file_name);
-		goto done;
+		exit(-1);
+		// goto done;
 	}
 
 	t->running_file = file;
 
-	file_deny_write(t->running_file);
+	file_deny_write(file);
 
 	/* Read and verify executable header. */
 	// ELF 파일의 헤더정보를 읽어와서 저장함
@@ -776,9 +801,7 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	for (; j >= 0; j--)
 	{
 		if_->rsp = if_->rsp - (strlen(arg_val[j]) + 1);
-
 		arg_addr[j] = if_->rsp;
-
 		memcpy(if_->rsp, arg_val[j], strlen(arg_val[j]) + 1);
 	}
 
@@ -786,7 +809,7 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 	if_->rsp = if_->rsp - remainder;
 	memset(if_->rsp, 0, remainder);
 
-	if_->rsp = if_->rsp - 8;
+	if_->rsp -= 8;
 	memset(if_->rsp, 0, 8);
 
 	for (i; i >= 0; i--)
@@ -795,7 +818,7 @@ void argument_stack(char *argv, int argc, struct intr_frame *if_)
 		memcpy(if_->rsp, &arg_addr[i], 8);
 	}
 
-	if_->rsp = if_->rsp - 8;
+	if_->rsp -= 8;
 	memset(if_->rsp, 0, 8);
 
 	if_->R.rdi = argc;
