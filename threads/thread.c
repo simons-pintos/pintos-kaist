@@ -117,11 +117,9 @@ void thread_sleep(int64_t ticks)
 	old_level = intr_disable();
 	if (curr != idle_thread)
 	{
-		// curr->status = THREAD_BLOCKED;
 		curr->wakeup_tick = ticks;
 		update_next_tick_to_awake(ticks);
 		list_push_back(&sleep_list, &curr->elem);
-		// schedule();
 		do_schedule(THREAD_BLOCKED);
 	}
 
@@ -301,7 +299,15 @@ tid_t thread_create(const char *name, int priority,
 
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 
+	// fdt 관련 initialize
 	t->fd_idx = 2;
+
+	/*
+	여기서 할당을 실패해서 thread_create가 return되면
+	위에서 할당된 t가 그대로 남아있어서 메모리 누수가 생긴다
+
+	해결 방법은 못 찾음
+	 */
 	t->fdt = palloc_get_multiple(PAL_ZERO, 3);
 	if (t->fdt == NULL)
 		return TID_ERROR;
@@ -689,6 +695,10 @@ init_thread(struct thread *t, const char *name, int priority)
 
 	list_push_front(&all_list, &t->all_elem);
 
+	/*
+	제일 처음에 생기는 main thread는 thread_create에 의해 생성되지 않지만 init_thread는 실행한다
+	main thread도 사용하는 것들은 init_thread에서 initialize해줘야 한다
+	*/
 	list_init(&t->child_list);
 
 	sema_init(&t->wait, 0);

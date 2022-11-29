@@ -98,6 +98,23 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 
+	/* Shared between thread.c and synch.c. */
+	struct list_elem elem; /* List element. */
+
+	/**************** project 1: threads *******************/
+	int64_t wakeup_tick;
+
+	int init_priority;
+
+	struct lock *wait_on_lock;
+	struct list donations;
+	struct list_elem donation_elem;
+
+	int nice;
+	int recent_cpu;
+	struct list_elem all_elem;
+
+	/**************** project 2: userprog *******************/
 	struct intr_frame parent_if;
 	struct list_elem child_elem;
 	struct list child_list;
@@ -115,20 +132,6 @@ struct thread
 	int stdout_cnt;
 
 	struct file *run_file;
-
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
-	int64_t wakeup_tick;
-
-	int init_priority;
-
-	struct lock *wait_on_lock;
-	struct list donations;
-	struct list_elem donation_elem;
-
-	int nice;
-	int recent_cpu;
-	struct list_elem all_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

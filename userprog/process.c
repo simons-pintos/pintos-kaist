@@ -28,6 +28,11 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+/*
+부모 thread가 자신의 child_list에서 입력 받은 pid를 가지고 있는 child thread를 검색
+child_list 전체 순회
+있으면 child의 struct thread, 없으면 NULL return
+*/
 struct thread *get_child_process(int pid)
 {
 	struct list_elem *temp_elem = temp_elem = list_begin(&thread_current()->child_list);
@@ -43,6 +48,11 @@ struct thread *get_child_process(int pid)
 	return NULL;
 }
 
+/*
+struct file *f를 현재 thread의 file descripter table(= fdt)에 저장
+fdt에서의 struct file *f의 index(= fd)를 return
+EXTRA multi-oom을 위해 바꿨지만 문제를 해결한 것 같지 않음
+*/
 int process_add_file(struct file *f)
 {
 	struct thread *curr = thread_current();
@@ -70,6 +80,9 @@ int process_add_file(struct file *f)
 	// return fd;
 }
 
+/*
+입력 받은 fd가 가리키는 struct file pointer를 return
+*/
 struct file *process_get_file(int fd)
 {
 	if (fd < 0 || fd >= FDT_LIMIT)
@@ -101,6 +114,8 @@ tid_t process_create_initd(const char *file_name)
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
+
+	// thread name을 위해 앞부분만 parsing
 	strtok_r(file_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
@@ -129,7 +144,12 @@ initd(void *f_name)
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
-	/* Clone current thread to new thread.*/
+	/*
+	부모 process가 system call인 fork를 호출해서 user mode에서 kernel mode로 context swtching
+	kernel에서의 작업이 끝난 후에 user mode로 돌아가기 위해 context(= if)를 kernel stack에 저장
+	fork를 통해 만들어진 자식 process는 kernel stack에 저장된 부모 process의 user 상태 if를 복사해서 그대로 사용
+	thread_create로 만들어지는 자식 process에게 if를 전달하기 위해 인자로 받는 부모의 struct thread에 저장해서 전달
+	*/
 	struct thread *parent = thread_current();
 	memcpy(&parent->parent_if, if_, sizeof(struct intr_frame));
 
@@ -137,9 +157,16 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	if (pid == TID_ERROR)
 		return TID_ERROR;
 
+	// 자식 process가 load가 완료되기 전까지 부모 process는 대기
 	struct thread *child = get_child_process(pid);
 	sema_down(&child->fork);
 
+	/*
+	자식 process가 제대로 만들어지지 않은 경우
+	process_wait의 semaphore 작업을 통해 자식 process가 exit할 수 있도록 함
+
+	다른 코드는 그냥 TID_ERROR를 return 하는데 둘의 차이점을 좀 더 살펴볼 필요가 있음
+	*/
 	if (child->exit_status < 0)
 		return process_wait(pid);
 
@@ -207,11 +234,13 @@ __do_fork(void *aux)
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *)aux;
 	struct thread *current = thread_current();
-	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
 
-	/* 1. Read the cpu context to local stack. */
+	/*
+	1. Read the cpu context to local stack.
+	전달 받아온 부모 process의 user 모드 if를 복사
+	*/
+	struct intr_frame *parent_if = &parent->parent_if;
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
 
 	/* 2. Duplicate PT */
@@ -239,10 +268,14 @@ __do_fork(void *aux)
 	if (parent->fd_idx >= FDT_LIMIT)
 		goto error;
 
-	const int MAPLEN = 10;
-	struct MapElem map[10];
-	int dup_cnt = 0;
-	bool found;
+	/*
+	process.h에서 struct MapElem 선언
+	key, value 값을 갖는 struct(dictionary와 유사)
+	*/
+	const int MAPLEN = 10;	// 배열 크기(숫자에 큰 의미는 없음)
+	struct MapElem map[10]; // struct MapElem 배열 선언
+	int dup_idx = 0;		// 배열에서 사용할 index
+	bool found;				// flag
 
 	for (int i = 0; i < FDT_LIMIT; i++)
 	{
@@ -250,6 +283,11 @@ __do_fork(void *aux)
 		if (f == NULL)
 			continue;
 
+		/*
+		해당 file pointer가 map에 있나 검색(선형 검색)
+		map에 있으면 map의 value를 current의 fdt에 가져온다
+		map에 없으면 새롭게 duplicate한 후에 map에 추가
+		*/
 		found = false;
 		for (int j = 0; j < MAPLEN; j++)
 		{
@@ -266,24 +304,25 @@ __do_fork(void *aux)
 			struct file *new_f;
 			if (f > 2)
 				new_f = file_duplicate(f);
-			else
+			else // STD_IN or STD_OUT인 경우
 				new_f = f;
 
 			current->fdt[i] = new_f;
 
-			if (dup_cnt < MAPLEN)
+			if (dup_idx < MAPLEN)
 			{
-				map[dup_cnt].key = f;
-				map[dup_cnt++].value = new_f;
+				map[dup_idx].key = f;
+				map[dup_idx++].value = new_f;
 			}
 		}
 	}
 
 	current->fd_idx = parent->fd_idx;
-	current->stdin_cnt = parent->stdin_cnt;
-	current->stdout_cnt = parent->stdout_cnt;
 
+	// fork에서 load가 다끝났으므로 부모 process를 다시 wakeup
 	sema_up(&current->fork);
+
+	// 만들어진 자식 process는 fork()에 대한 return 값을 0으로 받고 시작한다
 	if_.R.rax = 0;
 
 	/* Finally, switch to the newly created process. */
@@ -291,6 +330,7 @@ __do_fork(void *aux)
 		do_iret(&if_);
 
 error:
+	// 자식 process를 load하는 과정에서 error가 나면 부모 process를 일단 깨우고 load 실패한 자식 process를 TID_ERROR로 종료
 	sema_up(&current->fork);
 	exit(-1);
 }
@@ -386,11 +426,17 @@ int process_wait(tid_t child_tid UNUSED)
 	if (child == NULL)
 		return -1;
 
+	// 자식 process가 exit될 때까지 sleep
 	sema_down(&child->wait);
 
+	/*
+	자식 process가 process_exit 실행 중에 wait하는 부모 process를 wakeup
+	종료하는 자식 process의 exit status를 읽어오고 child_list에서 삭제
+	*/
 	int status = child->exit_status;
 	list_remove(&child->child_elem);
 
+	// 위의 작업이 끝나기를 기다리는 자식 process를 wakeup
 	sema_up(&child->exit);
 
 	return status;
@@ -405,16 +451,26 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
+	/*
+	실행 중인 file을 닫음
+	deny write on executables를 위해 실행 중인 파일을 계속 open해 놓는다
+	process 종료하기 전에 닫음
+	*/
 	file_close(curr->run_file);
 
+	// fdt에 있는 모든 file descripter를 모두 닫는다
 	for (int i = 0; i < FDT_LIMIT; i++)
 		close(i);
 
+	// palloc으로 memory를 할당 받는 fdt를 free한다
 	palloc_free_multiple(curr->fdt, 3);
 
 	process_cleanup();
 
+	// wait을 하고 있는 부모 process를 wakeup
 	sema_up(&thread_current()->wait);
+
+	// 부모 process가 삭제 작업을 마치기 전까지 sleep
 	sema_down(&thread_current()->exit);
 }
 
@@ -537,6 +593,7 @@ load(const char *file_name, struct intr_frame *if_)
 	char *argv[64];
 	int argc = 0;
 
+	// argument parsing
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 		argv[argc++] = token;
 
@@ -554,7 +611,10 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	}
 
+	// process를 종료할 때 닫기 위해 file descripter를 따로 저장해 둔다
 	thread_current()->run_file = file;
+
+	// 실행하려고 open한 file을 write하지 못하게 한다
 	file_deny_write(file);
 
 	/* Read and verify executable header. */
@@ -631,11 +691,10 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	// 파싱 확인 printf
-	// printf("argc: %d\n", argc);
-	// for (int i = 0; i < argc; i++)
-	// 	printf("argv[%d]: %s\n", i, argv[i]);
-
+	/*
+	user stack에 argument를 쌓는다
+	%rdi와 %rsi에 argc, argv를 각각 삽입
+	*/
 	argument_stack(argc, argv, if_);
 
 	success = true;

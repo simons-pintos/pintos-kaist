@@ -28,9 +28,10 @@ void syscall_handler(struct intr_frame *);
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-#define STDIN 1
-#define STDOUT 2
+#define STDIN 1	 // 표준 입력
+#define STDOUT 2 // 표준 출력
 
+// readers-writers를 위한 semaphore와 cnt
 struct semaphore mutex, wrt;
 int read_cnt;
 
@@ -68,13 +69,23 @@ void syscall_init(void)
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
+/*
+address의 유효성 검사
+1. kernel address인가?
+2. NULL 값인가?
+3. 할당 받은 VM의 address인가?
+유효하지 않으면 thread 종료
+*/
 void check_address(uint64_t addr)
 {
 	if (is_kernel_vaddr(addr) || addr == NULL || pml4_get_page(thread_current()->pml4, addr) == NULL)
 		exit(-1);
 }
 
-/* The main system call interface */
+/*
+The main system call interface
+user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어줌
+*/
 void syscall_handler(struct intr_frame *f UNUSED)
 {
 	// SYS_HALT,		/* Halt the operating system. */
@@ -194,11 +205,13 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	}
 }
 
+/* pintOS 종료 */
 void halt(void)
 {
 	power_off();
 }
 
+/* 현재 process 종료 */
 void exit(int status)
 {
 	thread_current()->exit_status = status;
@@ -207,13 +220,24 @@ void exit(int status)
 	thread_exit();
 }
 
+/*
+자신과 같은 file을 실행하는 자식 process를 만든다
+자식 process는 자신이 fork system call을 호출한 이후 부터 실행된다
+syscall_handler가 인자로 받은 현재 thread의 user mode if를 인자로 받는다
+*/
 tid_t fork(const char *thread_name, struct intr_frame *if_)
 {
 	return process_fork(thread_name, if_);
 }
 
+/*
+현재 process가 입력 받은 file을 실행하도록 바꾼다
+thread name은 바뀌지 않는다
+*/
 int exec(const char *file)
 {
+	/* Make a copy of FILE_NAME.
+	 * Otherwise there's a race between the caller and load(). */
 	char *fn_copy = palloc_get_page(PAL_ZERO);
 	if (fn_copy == NULL)
 		return -1;
@@ -226,21 +250,28 @@ int exec(const char *file)
 	return 0;
 }
 
+/* 입력 받은 pid를 가진 자식 process가 종료될 때까지 sleep */
 int wait(tid_t pid)
 {
 	return process_wait(pid);
 }
 
+/*
+initial_size를 가진 file 생성
+만들지만 open하지는 않는다
+*/
 bool create(const char *file, unsigned initial_size)
 {
 	return filesys_create(file, initial_size);
 }
 
+/* 해당 file 삭제 */
 bool remove(const char *file)
 {
 	return filesys_remove(file);
 }
 
+/* 입력 받은 file을 열어서 file descripter 생성 */
 int open(const char *file)
 {
 	sema_down(&wrt);
@@ -269,9 +300,10 @@ int filesize(int fd)
 	return file_length(f);
 }
 
+/* fd를 size만큼 buffer에 읽어온다 */
 int read(int fd, void *buffer, unsigned size)
 {
-	check_address(buffer + size - 1);
+	check_address(buffer + size - 1); // buffer 끝 주소도 유효성 검사
 
 	struct file *f = process_get_file(fd);
 	if (f == NULL || f == STDOUT)
@@ -279,6 +311,12 @@ int read(int fd, void *buffer, unsigned size)
 
 	int read_result;
 
+	/*
+	표준 입력
+	f는 pointer이지만 1, 2 값일 때 STD_IN, STD_OUT으로 사용한다
+	1, 2는 유효하지 않은 address지만 address로 접근하지 않고 int처럼 활용
+	input_getc()는 한 글자씩 입력 받는 함수
+	*/
 	if (f == STDIN)
 	{
 		for (read_result = 0; read_result < size; read_result++)
@@ -311,6 +349,7 @@ int read(int fd, void *buffer, unsigned size)
 	return read_result;
 }
 
+/* buffer에서 size만큼 fd에 쓴다 */
 int write(int fd, const void *buffer, unsigned size)
 {
 	struct file *f = process_get_file(fd);
@@ -319,6 +358,7 @@ int write(int fd, const void *buffer, unsigned size)
 
 	int write_result;
 
+	//표준 출력
 	if (f == STDOUT)
 	{
 		putbuf(buffer, size);
@@ -334,6 +374,7 @@ int write(int fd, const void *buffer, unsigned size)
 	return write_result;
 }
 
+/* fd의 pos를 인자로 받은 pos로 바꾼다 */
 void seek(int fd, unsigned pos)
 {
 	if (fd < 2)
@@ -346,6 +387,7 @@ void seek(int fd, unsigned pos)
 	file_seek(f, pos);
 }
 
+/* fd의 pos를 return */
 unsigned tell(int fd)
 {
 	if (fd < 2)
@@ -358,6 +400,17 @@ unsigned tell(int fd)
 	return file_tell(f);
 }
 
+/*
+fd를 닫고 fdt에서 fd를 삭제한다
+
+dup2의 경우 같은 file pointer를 여러 fd가 가지고 있을 수 있다
+한 fd를 close한다고 해서 file_close를 해버리면 다른 fd들이 쓰레기값을 가지게 된다
+그래서 struct file에 자신이 얼마나 복사됬는지를 기록해 두는 dup_cnt를 추가해서 관리
+만약 복사되어 있다면 dup_cnt만 줄이고 fd를 삭제한다
+복사되어 있지 않다면(dup_cnt==0) file_close를 한다
+
+stdin_cnt와 stdout_cnt는 별 쓸모 없는 것 같음
+*/
 void close(int fd)
 {
 	struct thread *curr = thread_current();
@@ -383,6 +436,10 @@ void close(int fd)
 	thread_current()->fdt[fd] = NULL;
 }
 
+/*
+oldfd가 가리키는 struct file pointer를 newfd도 가리키게 한다
+STD_IN, STD_OUT의 경우도 복사 가능
+*/
 int dup2(int oldfd, int newfd)
 {
 	if (oldfd == newfd)
