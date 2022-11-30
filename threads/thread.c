@@ -10,9 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-
 #include "intrinsic.h"
-
 #include "fixed_point.h"
 
 #ifdef USERPROG
