@@ -24,6 +24,8 @@
         "malloc.h": "c",
         "filesys.h": "c",
         "syscall-nr.h": "c",
-        "syn-read.h": "c"
+        "syn-read.h": "c",
+        "inspect.h": "c",
+        "vm.h": "c"
     }
 }

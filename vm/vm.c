@@ -5,12 +5,6 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 
-unsigned frame_hash(const struct hash_elem *elem, void *aux UNUSED);
-bool frame_less(const struct hash_elem *a, const struct hash_elem *b);
-
-unsigned page_hash(const struct hash_elem *elem, void *aux UNUSED);
-bool page_less(const struct hash_elem *a, const struct hash_elem *b);
-
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void)
@@ -23,7 +17,6 @@ void vm_init(void)
 	register_inspect_intr();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
-	hash_init(&frames, frame_hash, frame_less, NULL);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -76,24 +69,12 @@ struct page *
 spt_find_page(struct supplemental_page_table *spt, void *va)
 {
 	/* TODO: Fill this function. */
-	struct page *temp_page = (struct page *)malloc(sizeof(struct page));
-	temp_page->va = pg_round_down(va);
-
-	struct hash_elem *target_elem = hash_find(&spt->pages, &temp_page->ph_elem);
-	if (target_elem == NULL)
-		return NULL;
-
-	free(temp_page);
-
-	return hash_entry(target_elem, struct page, ph_elem);
 }
 
 /* Insert PAGE into spt with validation. */
 bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 {
 	/* TODO: Fill this function. */
-	struct hash_elem *temp_elem = hash_insert(&spt->pages, &page->ph_elem);
-	return (temp_elem == NULL) ? true : false;
 }
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
@@ -196,7 +177,6 @@ vm_do_claim_page(struct page *page)
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 {
-	hash_init(&spt->pages, page_hash, page_less, NULL);
 }
 
 /* Copy supplemental page table from src to dst */
@@ -210,32 +190,4 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-}
-
-unsigned frame_hash(const struct hash_elem *elem, void *aux UNUSED)
-{
-	const struct frame *frame = hash_entry(elem, struct frame, fh_elem);
-	return hash_bytes(frame->kva, sizeof frame->kva);
-}
-
-bool frame_less(const struct hash_elem *a, const struct hash_elem *b)
-{
-	const struct frame *frame_a = hash_entry(a, struct frame, fh_elem);
-	const struct frame *frame_b = hash_entry(b, struct frame, fh_elem);
-
-	return frame_a->kva < frame_b->kva;
-}
-
-unsigned page_hash(const struct hash_elem *elem, void *aux UNUSED)
-{
-	const struct page *page = hash_entry(elem, struct page, ph_elem);
-	return hash_bytes(page->va, sizeof page->va);
-}
-
-bool page_less(const struct hash_elem *a, const struct hash_elem *b)
-{
-	const struct page *page_a = hash_entry(a, struct page, ph_elem);
-	const struct page *page_b = hash_entry(b, struct page, ph_elem);
-
-	return page_a->va < page_b->va;
 }
