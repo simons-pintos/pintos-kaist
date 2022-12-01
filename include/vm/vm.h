@@ -1,6 +1,7 @@
 #ifndef VM_VM_H
 #define VM_VM_H
 #include <stdbool.h>
+#include <hash.h>
 #include "threads/palloc.h"
 
 enum vm_type
@@ -48,6 +49,11 @@ struct page
 	struct frame *frame; /* Back reference for frame */
 
 	/* Your implementation */
+	bool is_loaded;
+	bool writable;
+
+	/* spt 관련  */
+	struct hash_elem hash_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -90,8 +96,32 @@ struct page_operations
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
+
+/********** Supplemental Page Table(SPT) **********/
+// struct vm_entry
+// {
+// 	/* physical memory에 적재되어 있는가? */
+// 	bool is_loaded;
+
+// 	/* Virtaul memory 관련 member */
+// 	// enum vm_type type;
+// 	// void *va;
+// 	// bool writable;
+// 	struct page *page;
+
+// 	/* File(disk) 관련 member */
+// 	struct file *file;
+// 	off_t offset;
+// 	uint32_t read_bytes;
+// 	uint32_t zero_bytes;
+
+// 	/* Hash table 관련 member */
+// 	struct hash_elem hash_elem;
+// };
+
 struct supplemental_page_table
 {
+	struct hash table;
 };
 
 #include "threads/thread.h"
