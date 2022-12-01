@@ -5,10 +5,9 @@
 #include "threads/mmu.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
-
-unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED);
-static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b);
-
+#include "vm/uninit.h"
+#include "vm/file.h"
+#include "vm/anon.h"
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void)
@@ -47,10 +46,8 @@ static struct frame *vm_evict_frame(void);
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
  * `vm_alloc_page`. */
-bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
-									vm_initializer *init, void *aux)
+bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
 {
-
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
@@ -62,8 +59,15 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 
+		// 1. malloc으로  page struct를 만든다.
+		struct page *new_page = (struct page *)malloc(sizeof(struct page));
+
+		uninit_new(new_page, upage, init, type, aux, anon_initializer);
+
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, new_page);
 	}
+
 err:
 	return false;
 }
@@ -196,6 +200,9 @@ vm_do_claim_page(struct page *page)
 
 	// return swap_in(page, frame->kva);
 }
+
+unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED);
+static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b);
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)

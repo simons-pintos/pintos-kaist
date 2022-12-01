@@ -26,6 +26,7 @@
         "syscall-nr.h": "c",
         "syn-read.h": "c",
         "inspect.h": "c",
-        "vm.h": "c"
+        "vm.h": "c",
+        "uninit.h": "c"
     }
 }
