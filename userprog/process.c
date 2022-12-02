@@ -643,6 +643,7 @@ load(const char *file_name, struct intr_frame *if_)
 			goto done;
 
 		file_ofs += sizeof phdr;
+
 		switch (phdr.p_type)
 		{
 		case PT_NULL:
@@ -664,6 +665,14 @@ load(const char *file_name, struct intr_frame *if_)
 				uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
 				uint64_t page_offset = phdr.p_vaddr & PGMASK;
 				uint32_t read_bytes, zero_bytes;
+
+				// printf("[%d]phdr.p_flags: %d\n", i, phdr.p_flags);
+				// printf("[%d]phdr.p_filesz: %x\n", i, phdr.p_filesz);
+				// printf("[%d]phdr.p_memsz: %x\n", i, phdr.p_memsz);
+				// printf("[%d]file_page: %p\n", i, file_page);
+				// printf("[%d]mem_page: %p\n", i, mem_page);
+				// printf("[%d]page_offset: %p\n", i, page_offset);
+
 				if (phdr.p_filesz > 0)
 				{
 					/* Normal segment.
@@ -678,6 +687,10 @@ load(const char *file_name, struct intr_frame *if_)
 					read_bytes = 0;
 					zero_bytes = ROUND_UP(page_offset + phdr.p_memsz, PGSIZE);
 				}
+
+				// printf("[%d]read_bytes: %x\n", i, read_bytes);
+				// printf("[%d]zero_bytes: %x\n\n", i, zero_bytes);
+
 				if (!load_segment(file, file_page, (void *)mem_page,
 								  read_bytes, zero_bytes, writable))
 					goto done;
@@ -879,14 +892,17 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
 
+	struct file_info *file_info = (struct file_info *)aux;
+	int page_read_bytes = file_info->page_read_bytes;
+
 	vm_claim_page(page->va);
 
 	/* Load this page(anonymous로 가정) */
-	if (file_read(page->anon.file, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
-	{
+	file_seek(file_info->file, file_info->ofs);
+	if (file_read(file_info->file, page->frame->kva, page_read_bytes) != page_read_bytes)
 		return false;
-	}
-	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
+	memset(page->frame->kva + page_read_bytes, 0, file_info->page_zero_bytes);
 
 	return true;
 }
@@ -923,14 +939,19 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 
-		struct file_info file_info;
+		// struct file_info file_info = {file, ofs, page_read_bytes, page_zero_bytes};
+		// void *aux = &file_info;
 
-		file_info.file = file;
-		file_info.ofs = ofs;
-		file_info.page_read_bytes = page_read_bytes;
-		file_info.page_zero_bytes = page_zero_bytes;
+		// printf("===== %x =====\n", read_bytes);
+		// printf("===== %p =====\n\n", upage);
+		struct file_info *file_info = (struct file_info *)calloc(1, sizeof(struct file_info));
 
-		void *aux = &file_info;
+		file_info->file = file;
+		file_info->ofs = ofs;
+		file_info->page_read_bytes = page_read_bytes;
+		file_info->page_zero_bytes = page_zero_bytes;
+
+		void *aux = file_info;
 
 		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux))
 			return false;
@@ -954,6 +975,14 @@ setup_stack(struct intr_frame *if_)
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
+
+	void *aux = NULL;
+	success = vm_alloc_page_with_initializer(VM_ANON, stack_bottom, 1, lazy_load_segment, aux);
+
+	// printf("success: %d\n", success);
+
+	if (success)
+		if_->rsp = USER_STACK;
 
 	return success;
 }

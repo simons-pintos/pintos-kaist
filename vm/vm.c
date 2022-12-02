@@ -193,8 +193,6 @@ bool vm_claim_page(void *va)
 	if (page == NULL)
 		return false;
 
-	printf("HERE!!!!!!!!!!!!!!\n");
-
 	return vm_do_claim_page(page);
 }
 

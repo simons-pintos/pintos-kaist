@@ -27,6 +27,10 @@
         "syn-read.h": "c",
         "inspect.h": "c",
         "vm.h": "c",
-        "uninit.h": "c"
+        "uninit.h": "c",
+        "hash.h": "c",
+        "mmu.h": "c",
+        "anon.h": "c",
+        "main.h": "c"
     }
 }
