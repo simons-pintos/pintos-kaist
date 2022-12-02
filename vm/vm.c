@@ -62,11 +62,22 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		// 1. malloc으로  page struct를 만든다.
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
 
-		uninit_new(new_page, upage, init, type, aux, anon_initializer);
+		switch (type)
+		{
+		case VM_ANON:
+			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			break;
+
+		case VM_FILE:
+			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+			break;
+		}
 
 		/* TODO: Insert the page into the spt. */
 		spt_insert_page(spt, new_page);
 	}
+
+	return true;
 
 err:
 	return false;
@@ -178,9 +189,11 @@ void vm_dealloc_page(struct page *page)
 /* Claim the page that allocate on VA. */
 bool vm_claim_page(void *va)
 {
-	struct page *page = spt_find_page(&thread_current()->spt->table, va);
+	struct page *page = spt_find_page(&thread_current()->spt.table, va);
 	if (page == NULL)
 		return false;
+
+	printf("HERE!!!!!!!!!!!!!!\n");
 
 	return vm_do_claim_page(page);
 }
