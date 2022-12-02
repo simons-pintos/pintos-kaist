@@ -167,15 +167,27 @@ vm_handle_wp(struct page *page UNUSED)
 }
 
 /* Return true on success */
-bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
-						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
+bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-	struct page *page = NULL;
+	bool succ = false;
+
+	if (is_kernel_vaddr(addr))
+		return false;
+
+	struct supplemental_page_table *spt = &thread_current()->spt;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	struct page *page = spt_find_page(spt, addr);
+	if (page == NULL)
+		return false;
 
-	return vm_do_claim_page(page);
+	printf("page: %p\n", page->va);
+
+	succ = vm_do_claim_page(page);
+
+	printf("vm_do_claim_page succ: %d\n\n", succ);
+
+	return succ;
 }
 
 /* Free the page.
@@ -200,6 +212,7 @@ bool vm_claim_page(void *va)
 static bool
 vm_do_claim_page(struct page *page)
 {
+	struct thread *curr = thread_current();
 	struct frame *frame = vm_get_frame();
 
 	/* Set links */
@@ -207,9 +220,10 @@ vm_do_claim_page(struct page *page)
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	return pml4_set_page(&thread_current()->pml4, page->va, frame->kva, true);
+	if (!pml4_set_page(curr->pml4, page->va, frame->kva, true))
+		return false;
 
-	// return swap_in(page, frame->kva);
+	return swap_in(page, frame->kva);
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED);
