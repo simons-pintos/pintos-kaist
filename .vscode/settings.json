@@ -24,6 +24,14 @@
         "malloc.h": "c",
         "filesys.h": "c",
         "syscall-nr.h": "c",
-        "syn-read.h": "c"
+        "syn-read.h": "c",
+        "inspect.h": "c",
+        "vm.h": "c",
+        "uninit.h": "c",
+        "hash.h": "c",
+        "mmu.h": "c",
+        "anon.h": "c",
+        "main.h": "c",
+        "disk.h": "c"
     }
 }
