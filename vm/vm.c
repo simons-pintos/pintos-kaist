@@ -142,14 +142,16 @@ vm_evict_frame(void)
 static struct frame *
 vm_get_frame(void)
 {
-	struct frame *frame = (struct frame *)calloc(1, sizeof(struct frame));
-
-	ASSERT(frame != NULL);
-	ASSERT(frame->page == NULL);
+	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
 
 	frame->kva = palloc_get_page(PAL_USER);
 	if (frame->kva == NULL)
 		PANIC("TO DO");
+
+	frame->page = NULL;
+
+	ASSERT(frame != NULL);
+	ASSERT(frame->page == NULL);
 
 	return frame;
 }
@@ -171,7 +173,9 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 {
 	bool succ = false;
 
-	if (is_kernel_vaddr(addr))
+	// printf("addr: %p\n", addr);
+
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		return false;
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
@@ -181,11 +185,7 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (page == NULL)
 		return false;
 
-	printf("page: %p\n", page->va);
-
 	succ = vm_do_claim_page(page);
-
-	printf("vm_do_claim_page succ: %d\n\n", succ);
 
 	return succ;
 }
