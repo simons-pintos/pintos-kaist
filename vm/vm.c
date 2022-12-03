@@ -173,8 +173,6 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 {
 	bool succ = false;
 
-	// printf("addr: %p\n", addr);
-
 	if (is_kernel_vaddr(addr) || addr == NULL)
 		return false;
 
