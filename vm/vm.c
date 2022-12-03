@@ -237,6 +237,27 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
+	printf("======================================\n");
+	printf("************ Original src ************\n");
+	printf("===== src address    : [%p] \n", src);
+	printf("===== src elem_cnt   : [%d] \n", src->table.elem_cnt);
+	printf("===== src bucket_cnt : [%d] \n", src->table.bucket_cnt);
+	printf("===== src buckets    : [%p] \n", src->table.buckets);
+	printf("===== src hash_func  : [%p] \n", src->table.hash);
+	printf("===== src less_func  : [%p] \n", src->table.less);
+	printf("===== src aux        : [%p] \n", src->table.aux);
+
+
+	printf("************ Copy Destination ************\n");
+	printf("===== addr of dst    : [%p] \n", dst);
+	printf("===== dst elem_cnt   : [%d] \n", dst->table.elem_cnt);
+	printf("===== dst bucket_cnt : [%d] \n", dst->table.bucket_cnt);
+	printf("===== dst buckets    : [%p] \n", dst->table.buckets);
+	printf("===== dst hash_func  : [%p] \n", dst->table.hash);
+	printf("===== dst less_func  : [%p] \n", dst->table.less);
+	printf("===== dst aux        : [%p] \n", dst->table.aux);
+	printf("======================================\n");
+
 }
 
 /* Free the resource hold by the supplemental page table */
