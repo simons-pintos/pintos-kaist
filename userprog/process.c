@@ -672,6 +672,7 @@ load(const char *file_name, struct intr_frame *if_)
 				// printf("[%d]file_page: %p\n", i, file_page);
 				// printf("[%d]mem_page: %p\n", i, mem_page);
 				// printf("[%d]page_offset: %p\n", i, page_offset);
+				// printf("\n");
 
 				if (phdr.p_filesz > 0)
 				{
@@ -712,6 +713,7 @@ load(const char *file_name, struct intr_frame *if_)
 	user stack에 argument를 쌓는다
 	%rdi와 %rsi에 argc, argv를 각각 삽입
 	*/
+
 	argument_stack(argc, argv, if_);
 
 	success = true;
@@ -891,18 +893,20 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-
 	struct file_info *file_info = (struct file_info *)aux;
 	int page_read_bytes = file_info->page_read_bytes;
 
-	vm_claim_page(page->va);
-
-	/* Load this page(anonymous로 가정) */
 	file_seek(file_info->file, file_info->ofs);
+
 	if (file_read(file_info->file, page->frame->kva, page_read_bytes) != page_read_bytes)
 		return false;
 
 	memset(page->frame->kva + page_read_bytes, 0, file_info->page_zero_bytes);
+
+	// printf("va: %p\n", page->va);
+	// printf("kva: %p\n", page->frame->kva);
+	// printf("get_kva: %p\n", pml4_get_page(thread_current()->pml4, page->va));
+	// printf("\n");
 
 	return true;
 }
@@ -939,27 +943,21 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 
-		// struct file_info file_info = {file, ofs, page_read_bytes, page_zero_bytes};
-		// void *aux = &file_info;
-
-		// printf("===== %x =====\n", read_bytes);
-		// printf("===== %p =====\n\n", upage);
-		struct file_info *file_info = (struct file_info *)calloc(1, sizeof(struct file_info));
+		struct file_info *file_info = (struct file_info *)malloc(sizeof(struct file_info));
 
 		file_info->file = file;
 		file_info->ofs = ofs;
 		file_info->page_read_bytes = page_read_bytes;
 		file_info->page_zero_bytes = page_zero_bytes;
 
-		void *aux = file_info;
-
-		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux))
+		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, file_info))
 			return false;
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		ofs += PGSIZE;
 	}
 	return true;
 }
@@ -968,7 +966,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(struct intr_frame *if_)
 {
-	bool success = false;
+	struct thread *curr = thread_current();
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
@@ -976,14 +974,14 @@ setup_stack(struct intr_frame *if_)
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
 
-	void *aux = NULL;
-	success = vm_alloc_page_with_initializer(VM_ANON, stack_bottom, 1, lazy_load_segment, aux);
+	if (!vm_alloc_page_with_initializer(VM_ANON, stack_bottom, true, NULL, NULL))
+		return false;
 
-	// printf("success: %d\n", success);
+	if (!vm_claim_page(stack_bottom))
+		return false;
 
-	if (success)
-		if_->rsp = USER_STACK;
+	if_->rsp = USER_STACK;
 
-	return success;
+	return true;
 }
 #endif /* VM */

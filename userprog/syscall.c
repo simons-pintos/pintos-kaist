@@ -11,6 +11,7 @@
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "vm/vm.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -76,10 +77,12 @@ address의 유효성 검사
 3. 할당 받은 VM의 address인가?
 유효하지 않으면 thread 종료
 */
-void check_address(uint64_t addr)
+struct page *check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr) || addr == NULL || pml4_get_page(thread_current()->pml4, addr) == NULL)
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		exit(-1);
+
+	return spt_find_page(&thread_current()->spt, addr);
 }
 
 /*
