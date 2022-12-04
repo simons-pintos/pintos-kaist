@@ -256,10 +256,9 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 		vm_claim_page(parent_page->va);
 
 		//4.
-      if (parent_page->operations->type != VM_UNINIT) {
-          struct page* child_page = spt_find_page(dst, parent_page->va);
-          memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
-      }
+		struct page* child_page = spt_find_page(dst, parent_page->va);
+		memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+      
 	}
 
   return true;
