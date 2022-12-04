@@ -237,6 +237,32 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
+	//1. 해쉬 순회
+	//2. 페이지 만든다
+	//3. 페이지 열어준다
+	//4. memcpy(KVA parent에서 child로 복사)
+
+	//1.
+	struct hash_iterator i;
+	struct hash *parent_hash = &(src->table);
+	hash_first(&i, parent_hash);
+	while (hash_next(&i))
+	{
+		struct page *parent_page = hash_entry(hash_cur(&i), struct page, hash_elem);
+		
+		//2,
+		vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+		//3.
+		vm_claim_page(parent_page->va);
+
+		//4.
+      if (parent_page->operations->type != VM_UNINIT) {
+          struct page* child_page = spt_find_page(dst, parent_page->va);
+          memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+      }
+	}
+
+  return true;
 }
 
 /* Free the resource hold by the supplemental page table */
