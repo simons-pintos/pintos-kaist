@@ -1,5 +1,5 @@
 /* vm.c: Generic interface for virtual memory objects. */
-
+#include <string.h>
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
@@ -252,13 +252,15 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 		
 		//2,
 		vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+		
 		//3.
 		vm_claim_page(parent_page->va);
 
 		//4.
-		struct page* child_page = spt_find_page(dst, parent_page->va);
-		memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
-      
+		if (parent_page->operations->type != VM_UNINIT) {
+			struct page* child_page = spt_find_page(dst, parent_page->va);
+			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+		}
 	}
 
   return true;
@@ -269,6 +271,24 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+		//1. 해쉬 순회
+	//2. hash_elem으로 page 찾기
+	//3. free
+
+	//1.
+	struct hash_iterator i;
+	struct hash *parent_hash = &(spt->table);
+
+	hash_first(&i, parent_hash);
+	while (hash_next(&i))
+	{	
+		//2.
+		struct page *page_should_be_destroyed = hash_entry(hash_cur(&i), struct page, hash_elem);
+		//3.
+		destroy(page_should_be_destroyed);
+	}
+	// 해쉬도 지워주어야 하나?? hash_destroy()
+
 }
 
 /********** project 3: virtaul memory **********/

@@ -10,6 +10,9 @@
 
 #include "vm/vm.h"
 #include "vm/uninit.h"
+#include "threads/malloc.h"
+#include "lib/kernel/hash.c"
+
 
 static bool uninit_initialize(struct page *page, void *kva);
 static void uninit_destroy(struct page *page);
@@ -68,4 +71,12 @@ uninit_destroy(struct page *page)
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	if (uninit->type == VM_UNINIT){
+		// page에 할당된 자원들만 free 해줘야할 듯
+		free(page->frame);
+		// ???
+		// remove_elem()
+
+	}
+		
 }
