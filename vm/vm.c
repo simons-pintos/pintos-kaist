@@ -87,14 +87,12 @@ err:
 struct page *
 spt_find_page(struct supplemental_page_table *spt, void *va)
 {
-	struct page *temp_page = (struct page *)malloc(sizeof(struct page));
-	temp_page->va = pg_round_down(va);
+	struct page temp_page;
+	temp_page.va = pg_round_down(va);
 
-	struct hash_elem *temp_hash_elem = hash_find(&spt->table, &temp_page->hash_elem);
+	struct hash_elem *temp_hash_elem = hash_find(&spt->table, &temp_page.hash_elem);
 	if (temp_hash_elem == NULL)
 		return NULL;
-
-	free(temp_page);
 
 	return hash_entry(temp_hash_elem, struct page, hash_elem);
 }
@@ -236,12 +234,6 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 /* Copy supplemental page table from src to dst */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src)
 {
-	// 1. 해쉬 순회
-	// 2. 페이지 만든다
-	// 3. 페이지 열어준다
-	// 4. memcpy(KVA parent에서 child로 복사)
-
-	// 1.
 	struct hash_iterator i;
 	struct hash *parent_hash = &(src->table);
 
@@ -277,27 +269,21 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 
-	//1. 해쉬 순회
-	//2. hash_elem으로 page 찾기
-	//3. free
-
-	//1.
 	struct hash_iterator i;
 	struct hash *parent_hash = &(spt->table);
-	if (parent_hash == NULL){
+	if (parent_hash == NULL)
+	{
 		return false;
 	}
-	
+
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
-	{	
-		//2.
+	{
 		struct page *page_should_be_destroyed = hash_entry(hash_cur(&i), struct page, hash_elem);
-		//3.
+
 		destroy(page_should_be_destroyed);
-		hash_delete(parent_hash,hash_cur(&i));
+		hash_delete(parent_hash, hash_cur(&i));
 	}
-	// 해쉬도 지워주어야 하나?? hash_destroy()
 }
 
 /********** project 3: virtaul memory **********/

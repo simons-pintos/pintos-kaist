@@ -485,7 +485,8 @@ process_cleanup(void)
 	struct thread *curr = thread_current();
 
 #ifdef VM
-	supplemental_page_table_kill(&curr->spt);
+	if (!hash_empty(&curr->spt.table))
+		supplemental_page_table_kill(&curr->spt);
 #endif
 
 	uint64_t *pml4;
@@ -893,19 +894,26 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
 	// aux로 전달 받은 file data
 	struct file_info *file_info = (struct file_info *)aux;
+
+	struct file *file = file_info->file;
+	off_t ofs = file_info->ofs;
 	int page_read_bytes = file_info->page_read_bytes;
+	int page_zero_bytes = file_info->page_zero_bytes;
+
+	// free(file_info);
 
 	// load해야할 부분으로 file ofs 변경
-	file_seek(file_info->file, file_info->ofs);
+	file_seek(file, ofs);
 
 	// laod segment
-	if (file_read(file_info->file, page->frame->kva, page_read_bytes) != page_read_bytes)
+	if (file_read(file, page->frame->kva, page_read_bytes) != page_read_bytes)
 		return false;
 
 	// setup zero bytes space
-	memset(page->frame->kva + page_read_bytes, 0, file_info->page_zero_bytes);
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
 
 	return true;
 }
