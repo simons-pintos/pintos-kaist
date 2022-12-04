@@ -58,4 +58,13 @@ static void
 anon_destroy(struct page *page)
 {
 	struct anon_page *anon_page = &page->anon;
+	/* TODO: Fill this function.
+	 * TODO: If you don't have anything to do, just return. */
+	if (anon_page->type == VM_ANON)
+		// palloc_free_page(anon_page);
+		free(page->frame);
+		// ???
+		// remove_elem()
+
+
 }
