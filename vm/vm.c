@@ -234,35 +234,41 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 }
 
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-								  struct supplemental_page_table *src UNUSED)
+bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src)
 {
-	//1. 해쉬 순회
-	//2. 페이지 만든다
-	//3. 페이지 열어준다
-	//4. memcpy(KVA parent에서 child로 복사)
+	// 1. 해쉬 순회
+	// 2. 페이지 만든다
+	// 3. 페이지 열어준다
+	// 4. memcpy(KVA parent에서 child로 복사)
 
-	//1.
+	// 1.
 	struct hash_iterator i;
 	struct hash *parent_hash = &(src->table);
+
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
 	{
 		struct page *parent_page = hash_entry(hash_cur(&i), struct page, hash_elem);
-		
-		//2,
-		vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
-		//3.
-		vm_claim_page(parent_page->va);
 
-		//4.
-      if (parent_page->operations->type != VM_UNINIT) {
-          struct page* child_page = spt_find_page(dst, parent_page->va);
-          memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
-      }
+		if (parent_page->operations->type == VM_UNINIT)
+		{
+			vm_initializer *init = parent_page->uninit.init;
+			void *aux = parent_page->uninit.aux;
+
+			vm_alloc_page_with_initializer(parent_page->uninit.type, parent_page->va, parent_page->writable, init, aux);
+		}
+		else
+		{
+			vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+
+			vm_claim_page(parent_page->va);
+
+			struct page *child_page = spt_find_page(dst, parent_page->va);
+			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+		}
 	}
 
-  return true;
+	return true;
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -278,6 +284,9 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 	//1.
 	struct hash_iterator i;
 	struct hash *parent_hash = &(spt->table);
+	if (parent_hash == NULL){
+		return false;
+	}
 	
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
@@ -286,6 +295,7 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 		struct page *page_should_be_destroyed = hash_entry(hash_cur(&i), struct page, hash_elem);
 		//3.
 		destroy(page_should_be_destroyed);
+		hash_delete(parent_hash,hash_cur(&i));
 	}
 	// 해쉬도 지워주어야 하나?? hash_destroy()
 }
