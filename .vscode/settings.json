@@ -1,6 +1,5 @@
 {
     "files.associations": {
-        "*.html": "html",
         "random.h": "c",
         "process.h": "c",
         "intr-stubs.h": "c",
@@ -33,8 +32,6 @@
         "mmu.h": "c",
         "anon.h": "c",
         "main.h": "c",
-        "disk.h": "c",
-        "unistd.h": "c"
-    },
-    "C_Cpp.errorSquiggles": "Disabled"
+        "disk.h": "c"
+    }
 }

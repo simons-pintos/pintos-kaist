@@ -392,5 +392,3 @@ remove_elem (struct hash *h, struct hash_elem *e) {
 	list_remove (&e->list_elem);
 }
 
-
-/* Copy hash function */
