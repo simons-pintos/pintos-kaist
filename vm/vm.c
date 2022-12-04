@@ -271,14 +271,23 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+<<<<<<< HEAD
 		//1. 해쉬 순회
+=======
+
+	//1. 해쉬 순회
+>>>>>>> 47399a36fb7deb84578d06e690c4c57cb97cec3c
 	//2. hash_elem으로 page 찾기
 	//3. free
 
 	//1.
 	struct hash_iterator i;
 	struct hash *parent_hash = &(spt->table);
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> 47399a36fb7deb84578d06e690c4c57cb97cec3c
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
 	{	
@@ -288,7 +297,10 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 		destroy(page_should_be_destroyed);
 	}
 	// 해쉬도 지워주어야 하나?? hash_destroy()
+<<<<<<< HEAD
 
+=======
+>>>>>>> 47399a36fb7deb84578d06e690c4c57cb97cec3c
 }
 
 /********** project 3: virtaul memory **********/
