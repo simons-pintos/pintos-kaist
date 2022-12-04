@@ -237,27 +237,31 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
-	printf("======================================\n");
-	printf("************ Original src ************\n");
-	printf("===== src address    : [%p] \n", src);
-	printf("===== src elem_cnt   : [%d] \n", src->table.elem_cnt);
-	printf("===== src bucket_cnt : [%d] \n", src->table.bucket_cnt);
-	printf("===== src buckets    : [%p] \n", src->table.buckets);
-	printf("===== src hash_func  : [%p] \n", src->table.hash);
-	printf("===== src less_func  : [%p] \n", src->table.less);
-	printf("===== src aux        : [%p] \n", src->table.aux);
+	//1. 해쉬 순회
+	//2. 페이지 만든다
+	//3. 페이지 열어준다
+	//4. memcpy(KVA parent에서 child로 복사)
 
+	//1.
+	struct hash_iterator i;
+	struct hash *parent_hash = &(src->table);
+	hash_first(&i, parent_hash);
+	while (hash_next(&i))
+	{
+		struct page *parent_page = hash_entry(hash_cur(&i), struct page, hash_elem);
+		
+		//2,
+		vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+		//3.
+		vm_claim_page(parent_page->va);
 
-	printf("************ Copy Destination ************\n");
-	printf("===== addr of dst    : [%p] \n", dst);
-	printf("===== dst elem_cnt   : [%d] \n", dst->table.elem_cnt);
-	printf("===== dst bucket_cnt : [%d] \n", dst->table.bucket_cnt);
-	printf("===== dst buckets    : [%p] \n", dst->table.buckets);
-	printf("===== dst hash_func  : [%p] \n", dst->table.hash);
-	printf("===== dst less_func  : [%p] \n", dst->table.less);
-	printf("===== dst aux        : [%p] \n", dst->table.aux);
-	printf("======================================\n");
+		//4.
+		struct page* child_page = spt_find_page(dst, parent_page->va);
+		memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+      
+	}
 
+  return true;
 }
 
 /* Free the resource hold by the supplemental page table */
