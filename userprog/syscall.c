@@ -51,6 +51,9 @@ void seek(int fd, unsigned pos);
 unsigned tell(int fd);
 void close(int fd);
 
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap(void *addr);
+
 int dup2(int oldfd, int newfd);
 
 void syscall_init(void)
@@ -89,6 +92,7 @@ user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어�
 */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
+	/* Projects 2 and later. */
 	// SYS_HALT,		/* Halt the operating system. */
 	// SYS_EXIT,		/* Terminate this process. */
 	// SYS_FORK,		/* Clone current process. */
@@ -104,6 +108,11 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	// SYS_TELL,		/* Report current position in a file. */
 	// SYS_CLOSE,		/* Close a file. */
 
+	/* Project 3 and optionally project 4. */
+	// SYS_MMAP,		/* Map a file into memory. */
+	// SYS_MUNMAP,		/* Remove a memory mapping. */
+
+	/* Extra for Project 2 */
 	// SYS_DUP2			/* Duplicate the file descriptor */
 
 	thread_current()->user_rsp = f->rsp;
@@ -198,6 +207,24 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_CLOSE:
 		// argv[0]: int fd
 		close(f->R.rdi);
+		break;
+
+	case SYS_MMAP:
+		// argv[0]: void *addr
+		// argv[1]: size_t length
+		// argv[2]: int writable
+		// argv[3]: int fd
+		// argv[4]: off_t offset
+		check_address(f->R.rdi);
+
+		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+		break;
+
+	case SYS_MUNMAP:
+		// argv[0]: void *addr
+		check_address(f->R.rdi);
+
+		munmap(f->R.rdi);
 		break;
 
 	case SYS_DUP2:
@@ -466,4 +493,22 @@ int dup2(int oldfd, int newfd)
 	close(newfd);
 	curr->fdt[newfd] = f;
 	return newfd;
+}
+
+/**************** project 3: virtual memory *******************/
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+	struct file *file = process_get_file(fd);
+	if (file == NULL || file == STDIN || file == STDOUT)
+		return NULL;
+
+	if (length == 0)
+		return NULL;
+
+	return do_mmap(addr, length, writable, file, offset);
+}
+
+void munmap(void *addr)
+{
+	do_munmap(addr);
 }

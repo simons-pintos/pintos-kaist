@@ -185,7 +185,10 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	uintptr_t stack_bottom = pg_round_down(rsp);
 
 	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
+	{
+		// printf("[Debug]addr: %p\n", addr);
 		vm_stack_growth(addr);
+	}
 
 	/* find page */
 	struct page *page = spt_find_page(spt, addr);
