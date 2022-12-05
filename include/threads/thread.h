@@ -135,7 +135,6 @@ struct thread
 
 	/**************** project 3: virtual memory *******************/
 	uintptr_t user_rsp;
-	uintptr_t stack_bottom;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

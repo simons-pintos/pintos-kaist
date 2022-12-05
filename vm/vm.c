@@ -158,9 +158,9 @@ vm_get_frame(void)
 static void
 vm_stack_growth(void *addr)
 {
-	uintptr_t addr_page = pg_round_down(addr);
-	vm_alloc_page(VM_ANON, addr_page, true);
-	thread_current()->stack_bottom = addr_page;
+	uintptr_t stack_bottom = pg_round_down(addr);
+	vm_alloc_page(VM_ANON, stack_bottom, true);
+	// thread_current()->user_rsp = addr;
 }
 
 /* Handle the fault on write_protected page */
@@ -182,15 +182,10 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* stack growth */
 	uintptr_t stack_limit = USER_STACK - (1 << 20);
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
-	uintptr_t stack_bottom = thread_current()->stack_bottom;
+	uintptr_t stack_bottom = pg_round_down(rsp);
 
-	if (addr < stack_bottom && addr >= stack_limit)
-	{
-		if (addr >= stack_bottom + PGSIZE)
-			return false;
-
+	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
 		vm_stack_growth(addr);
-	}
 
 	/* find page */
 	struct page *page = spt_find_page(spt, addr);

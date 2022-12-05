@@ -373,6 +373,8 @@ void argument_stack(int argc, char **argv, struct intr_frame *_if)
 	// rdi(첫번째 인자 register)와 rsi(두번째 인자 register)에 argc와 argv 삽입
 	_if->R.rdi = argc;
 	_if->R.rsi = _if->rsp + 8;
+
+	thread_current()->user_rsp = _if->rsp;
 }
 
 /* Switch the current execution context to the f_name.
@@ -1010,7 +1012,6 @@ setup_stack(struct intr_frame *if_)
 
 	// stack pointer 설정
 	if_->rsp = USER_STACK;
-	curr->stack_bottom = stack_bottom;
 
 	return true;
 }
