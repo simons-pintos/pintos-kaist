@@ -160,7 +160,7 @@ vm_stack_growth(void *addr)
 {
 	uintptr_t stack_bottom = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, stack_bottom, true);
-	// thread_current()->user_rsp = addr;
+	thread_current()->user_rsp = addr;
 }
 
 /* Handle the fault on write_protected page */
@@ -172,6 +172,9 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
+	// printf("[Debug]thread_name: %s\n", thread_name());
+	// printf("[Debug]addr: %p\n", addr);
+
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
 
@@ -185,10 +188,7 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	uintptr_t stack_bottom = pg_round_down(rsp);
 
 	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
-	{
-		// printf("[Debug]addr: %p\n", addr);
 		vm_stack_growth(addr);
-	}
 
 	/* find page */
 	struct page *page = spt_find_page(spt, addr);
@@ -198,6 +198,9 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
+	// printf("[Debug]page->va: %p\n", page->va);
+	// printf("[Debug]page->frame: %p\n", page->frame);
+	// printf("\n");
 	return succ;
 }
 
@@ -239,9 +242,11 @@ vm_do_claim_page(struct page *page)
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED);
 static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b);
+void hash_copy(struct hash_elem *hash_elem, void *aux);
+void hash_destructor(struct hash_elem *hash_elem, void *aux);
 
 /* Initialize new supplemental page table */
-void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
+void supplemental_page_table_init(struct supplemental_page_table *spt)
 {
 	hash_init(&spt->table, spt_hash, spt_less, NULL);
 }
@@ -250,7 +255,9 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src)
 {
 	struct hash_iterator i;
-	struct hash *parent_hash = &(src->table);
+	struct hash *parent_hash = &src->table;
+
+	// hash_apply(parent_hash, hash_copy);
 
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
@@ -279,26 +286,12 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 }
 
 /* Free the resource hold by the supplemental page table */
-void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
+void supplemental_page_table_kill(struct supplemental_page_table *spt)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 
-	struct hash_iterator i;
-	struct hash *parent_hash = &(spt->table);
-	if (parent_hash == NULL)
-	{
-		return false;
-	}
-
-	hash_first(&i, parent_hash);
-	while (hash_next(&i))
-	{
-		struct page *page_should_be_destroyed = hash_entry(hash_cur(&i), struct page, hash_elem);
-
-		destroy(page_should_be_destroyed);
-		hash_delete(parent_hash, hash_cur(&i));
-	}
+	hash_destroy(&spt->table, hash_destructor);
 }
 
 /********** project 3: virtaul memory **********/
@@ -314,4 +307,19 @@ static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b)
 	const struct page *page_b = hash_entry(b, struct page, hash_elem);
 
 	return page_a->va < page_b->va;
+}
+
+void hash_destructor(struct hash_elem *hash_elem, void *aux)
+{
+	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
+
+	vm_dealloc_page(page);
+}
+
+void hash_print(struct hash_elem *hash_elem, void *aux)
+{
+	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
+
+	printf("[Debug]page->va: %p\n", page->va);
+	// printf("[Debug]page->operations->type: %d\n", page->operations->type);
 }

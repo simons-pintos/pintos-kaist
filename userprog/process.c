@@ -395,6 +395,8 @@ int process_exec(void *f_name)
 	/* We first kill the current context */
 	process_cleanup();
 
+	supplemental_page_table_init(&thread_current()->spt.table);
+
 	/* And then load the binary */
 	success = load(file_name, &_if);
 
@@ -487,8 +489,7 @@ process_cleanup(void)
 	struct thread *curr = thread_current();
 
 #ifdef VM
-	if (!hash_empty(&curr->spt.table))
-		supplemental_page_table_kill(&curr->spt);
+	supplemental_page_table_kill(&curr->spt);
 #endif
 
 	uint64_t *pml4;

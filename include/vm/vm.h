@@ -125,4 +125,6 @@ void vm_dealloc_page(struct page *page);
 bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
 
+void hash_print(struct hash_elem *hash_elem, void *aux);
+
 #endif /* VM_VM_H */
