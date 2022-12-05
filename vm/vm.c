@@ -156,8 +156,11 @@ vm_get_frame(void)
 
 /* Growing the stack. */
 static void
-vm_stack_growth(void *addr UNUSED)
+vm_stack_growth(void *addr)
 {
+	uintptr_t addr_page = pg_round_down(addr);
+	vm_alloc_page(VM_ANON, addr_page, true);
+	thread_current()->stack_bottom = addr_page;
 }
 
 /* Handle the fault on write_protected page */
@@ -169,18 +172,32 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
+	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
 
+	/* check validation */
 	if (is_kernel_vaddr(addr) || addr == NULL)
 		return false;
 
-	struct supplemental_page_table *spt = &thread_current()->spt;
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
+	/* stack growth */
+	uintptr_t stack_limit = USER_STACK - (1 << 20);
+	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
+	uintptr_t stack_bottom = thread_current()->stack_bottom;
+
+	if (addr < stack_bottom && addr >= stack_limit)
+	{
+		if (addr >= stack_bottom + PGSIZE)
+			return false;
+
+		vm_stack_growth(addr);
+	}
+
+	/* find page */
 	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
 		return false;
 
+	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
 	return succ;
