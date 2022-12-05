@@ -160,7 +160,7 @@ vm_stack_growth(void *addr)
 {
 	uintptr_t stack_bottom = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, stack_bottom, true);
-	thread_current()->user_rsp = addr;
+	// thread_current()->user_rsp = addr;
 }
 
 /* Handle the fault on write_protected page */
@@ -198,9 +198,6 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
-	// printf("[Debug]page->va: %p\n", page->va);
-	// printf("[Debug]page->frame: %p\n", page->frame);
-	// printf("\n");
 	return succ;
 }
 
@@ -257,8 +254,6 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 	struct hash_iterator i;
 	struct hash *parent_hash = &src->table;
 
-	// hash_apply(parent_hash, hash_copy);
-
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
 	{
@@ -288,9 +283,6 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt)
 {
-	/* TODO: Destroy all the supplemental_page_table hold by thread and
-	 * TODO: writeback all the modified contents to the storage. */
-
 	hash_destroy(&spt->table, hash_destructor);
 }
 
