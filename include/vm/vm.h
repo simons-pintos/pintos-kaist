@@ -107,7 +107,7 @@ struct supplemental_page_table
 
 struct mmap_file
 {
-	int map_id;
+	uintptr_t addr;
 	struct file *file;
 	struct list_elem elem;
 	struct list page_list;

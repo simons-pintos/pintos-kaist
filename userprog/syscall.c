@@ -215,12 +215,13 @@ void syscall_handler(struct intr_frame *f)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
-
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
 	case SYS_MUNMAP:
 		// argv[0]: void *addr
+		check_address(f->R.rdi);
+
 		munmap(f->R.rdi);
 		break;
 
@@ -502,8 +503,11 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	if (length == 0 || filesize(fd) == 0)
 		return NULL;
 
-	if (is_kernel_vaddr(addr) || addr == NULL || pg_ofs(addr))
+	if (is_kernel_vaddr(addr) || is_kernel_vaddr(addr + length) || pg_ofs(addr))
 		return NULL;
+
+	if (addr == NULL || addr + length == NULL)
+		return false;
 
 	if (spt_find_page(&thread_current()->spt, addr) || offset % PGSIZE)
 		return false;

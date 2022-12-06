@@ -473,6 +473,14 @@ void process_exit(void)
 	// palloc으로 memory를 할당 받는 fdt를 free한다
 	palloc_free_multiple(curr->fdt, 3);
 
+	struct list_elem *temp_elem = list_begin(&curr->mmap_list);
+	for (; temp_elem != list_tail(&curr->mmap_list);)
+	{
+		struct mmap_file *temp_mmap = list_entry(temp_elem, struct mmap_file, elem);
+		temp_elem = temp_elem->next;
+		munmap(temp_mmap->addr);
+	}
+
 	process_cleanup();
 
 	// wait을 하고 있는 부모 process를 wakeup

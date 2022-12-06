@@ -156,7 +156,6 @@ vm_stack_growth(void *addr)
 {
 	uintptr_t stack_bottom = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, stack_bottom, true);
-	// thread_current()->user_rsp = addr;
 }
 
 /* Handle the fault on write_protected page */
@@ -169,7 +168,6 @@ vm_handle_wp(struct page *page UNUSED)
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
 	// printf("[Debug]thread_name: %s\n", thread_name());
-	// printf("[Debug]addr: %p\n", addr);
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
@@ -181,7 +179,6 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* stack growth */
 	uintptr_t stack_limit = USER_STACK - (1 << 20);
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
-	uintptr_t stack_bottom = pg_round_down(rsp);
 
 	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
 		vm_stack_growth(addr);
