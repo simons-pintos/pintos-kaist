@@ -74,10 +74,9 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		}
 
 		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, new_page);
-	}
 
-	return true;
+	return spt_insert_page(spt, new_page);
+	}
 
 err:
 	return false;
@@ -174,7 +173,9 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 {
 	// printf("[Debug]thread_name: %s\n", thread_name());
 	// printf("[Debug]addr: %p\n", addr);
-
+	// printf("[Debug]f->rsp: %p\n", f->rsp);
+	
+	// printf("=======vm_try_handle_fault :: start \n");
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
 
@@ -186,6 +187,12 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	uintptr_t stack_limit = USER_STACK - (1 << 20);
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
 	uintptr_t stack_bottom = pg_round_down(rsp);
+
+	// printf("[Debug2]stack_limit: %p\n", stack_limit);
+	// printf("[Debug2]rsp: %p\n", rsp);
+	// printf("[Debug2]stack_bottom: %p\n", stack_bottom);
+	// printf("[Debug2]addr: %p\n", addr);
+
 
 	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
 		vm_stack_growth(addr);
@@ -201,6 +208,8 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	// printf("[Debug]page->va: %p\n", page->va);
 	// printf("[Debug]page->frame: %p\n", page->frame);
 	// printf("\n");
+	// printf("=======vm_try_handle_fault :: finish \n");
+	// printf("=======succ : %d\n", succ);
 	return succ;
 }
 
@@ -232,11 +241,11 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	if (!pml4_set_page(curr->pml4, page->va, frame->kva, true))
 		return false;
 
+	// return true;
 	return swap_in(page, frame->kva);
 }
 
@@ -320,6 +329,5 @@ void hash_print(struct hash_elem *hash_elem, void *aux)
 {
 	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
 
-	printf("[Debug]page->va: %p\n", page->va);
 	// printf("[Debug]page->operations->type: %d\n", page->operations->type);
 }
