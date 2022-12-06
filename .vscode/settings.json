@@ -33,5 +33,6 @@
         "anon.h": "c",
         "main.h": "c",
         "disk.h": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
 }

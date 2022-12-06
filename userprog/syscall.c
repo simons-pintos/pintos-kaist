@@ -82,7 +82,9 @@ address의 유효성 검사
 */
 void check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
+	// if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
+	// 	exit(-1);
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		exit(-1);
 }
 
@@ -216,7 +218,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[3]: int fd
 		// argv[4]: off_t offset
 		check_address(f->R.rdi);
-
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
@@ -307,14 +308,12 @@ int open(const char *file)
 	sema_down(&wrt);
 	struct file *f = filesys_open(file);
 	sema_up(&wrt);
-
 	if (f == NULL)
 		return -1;
 
 	int fd = process_add_file(f);
 	if (fd == -1)
 		close(f);
-
 	return fd;
 }
 
@@ -497,12 +496,18 @@ int dup2(int oldfd, int newfd)
 
 /**************** project 3: virtual memory *******************/
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
-{
+{	
 	struct file *file = process_get_file(fd);
-	if (file == NULL || file == STDIN || file == STDOUT)
-		return NULL;
+	struct thread *cur = thread_current();
 
-	if (length == 0)
+
+	if (length == 0 || addr == 0)
+		return NULL;
+	if ((int)addr % PGSIZE != 0 || offset % PGSIZE != 0)
+		return NULL;
+	if (spt_find_page(&cur->spt, addr) == &addr)
+		return NULL;
+	if (file == NULL || file == STDIN || file == STDOUT)
 		return NULL;
 
 	return do_mmap(addr, length, writable, file, offset);
