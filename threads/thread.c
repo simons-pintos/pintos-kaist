@@ -704,6 +704,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	sema_init(&t->wait, 0);
 	sema_init(&t->fork, 0);
 	sema_init(&t->exit, 0);
+
+	/* project 3: virtual memory */
+	list_init(&t->mmap_list);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

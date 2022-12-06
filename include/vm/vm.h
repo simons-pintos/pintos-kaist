@@ -49,11 +49,13 @@ struct page
 	struct frame *frame; /* Back reference for frame */
 
 	/* Your implementation */
-	bool is_loaded;
 	bool writable;
 
 	/* spt 관련  */
 	struct hash_elem hash_elem;
+
+	/* mmap 관련 */
+	struct list_elem mmap_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -103,7 +105,16 @@ struct supplemental_page_table
 	struct hash table;
 };
 
+struct mmap_file
+{
+	int map_id;
+	struct file *file;
+	struct list_elem elem;
+	struct list page_list;
+};
+
 #include "threads/thread.h"
+
 void supplemental_page_table_init(struct supplemental_page_table *spt);
 bool supplemental_page_table_copy(struct supplemental_page_table *dst,
 								  struct supplemental_page_table *src);

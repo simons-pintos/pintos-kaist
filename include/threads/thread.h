@@ -136,6 +136,8 @@ struct thread
 	/**************** project 3: virtual memory *******************/
 	uintptr_t user_rsp;
 
+	struct list mmap_list;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
