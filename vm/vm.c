@@ -173,7 +173,7 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	// printf("[Debug]addr: %p\n", addr);
+	// printf("[DEBUG]addr: %p\n", addr);
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
