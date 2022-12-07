@@ -27,15 +27,19 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	struct uninit_page *uninit = &page->uninit;
 	struct file_info *file_info = (struct file_info *)uninit->aux;
+
 	memset(uninit, 0, sizeof(struct uninit_page));
 
 	/* Set up the handler */
 	page->operations = &file_ops;
 	struct file_page *file_page = &page->file;
 
-	file_page->file = file_info->file;
-	file_page->length = file_info->page_read_bytes;
-	file_page->offset = file_info->ofs;
+	if (!(type & VM_MARKER_0))
+	{
+		file_page->file = file_info->file;
+		file_page->length = file_info->page_read_bytes;
+		file_page->offset = file_info->ofs;
+	}
 
 	return true;
 }

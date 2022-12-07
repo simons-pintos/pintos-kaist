@@ -8,6 +8,7 @@
  * function.
  * */
 
+#include "userprog/process.h"
 #include "vm/vm.h"
 #include "vm/uninit.h"
 

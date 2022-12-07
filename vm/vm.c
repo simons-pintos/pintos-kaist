@@ -1,5 +1,6 @@
 /* vm.c: Generic interface for virtual memory objects. */
 
+#include <string.h>
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
@@ -62,7 +63,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		// 1. malloc으로  page struct를 만든다.
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
 
-		switch (type)
+		switch (VM_TYPE(type))
 		{
 		case VM_ANON:
 			uninit_new(new_page, upage, init, type, aux, anon_initializer);
@@ -256,21 +257,24 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 	while (hash_next(&i))
 	{
 		struct page *parent_page = hash_entry(hash_cur(&i), struct page, hash_elem);
+		void *aux = parent_page->uninit.aux;
 
 		if (parent_page->operations->type == VM_UNINIT)
 		{
 			vm_initializer *init = parent_page->uninit.init;
-			void *aux = parent_page->uninit.aux;
 
 			vm_alloc_page_with_initializer(parent_page->uninit.type, parent_page->va, parent_page->writable, init, aux);
 		}
 		else
 		{
-			vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+			// VM_MARKER_0: fork에서 실행된 vm_alloc_page -> 인자에 lazy_load_segment와 aux 없음
+			vm_alloc_page_with_initializer(page_get_type(parent_page) | VM_MARKER_0, parent_page->va, parent_page->writable, NULL, aux);
 
 			vm_claim_page(parent_page->va);
 
 			struct page *child_page = spt_find_page(dst, parent_page->va);
+
+			memcpy(&child_page->file, &parent_page->file, sizeof(struct file_page));
 			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
 		}
 	}
