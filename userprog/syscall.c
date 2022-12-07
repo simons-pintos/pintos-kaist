@@ -80,10 +80,28 @@ address의 유효성 검사
 3. 할당 받은 VM의 address인가?
 유효하지 않으면 thread 종료
 */
-void check_address(uint64_t addr)
+struct page *check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		exit(-1);
+
+	return spt_find_page(&thread_current()->spt, addr);
+}
+
+void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
+{
+	uintptr_t start_page = pg_round_down(buffer);
+	uintptr_t end_page = pg_round_down(buffer + size);
+
+	for (; start_page > end_page; start_page += PGSIZE)
+	{
+		struct page *page = check_address(start_page);
+		if (page == NULL)
+			exit(-1);
+
+		if (to_write == true && page->writable == false)
+			exit(-1);
+	}
 }
 
 /*
@@ -179,7 +197,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		// check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -188,7 +206,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: const void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		// check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -331,8 +349,6 @@ int filesize(int fd)
 /* fd를 size만큼 buffer에 읽어온다 */
 int read(int fd, void *buffer, unsigned size)
 {
-	check_address(buffer + size - 1); // buffer 끝 주소도 유효성 검사
-
 	struct file *f = process_get_file(fd);
 	if (f == NULL || f == STDOUT)
 		return -1;

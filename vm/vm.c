@@ -73,6 +73,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 			break;
 		}
 
+		new_page->writable = writable;
+
 		return spt_insert_page(spt, new_page);
 	}
 
@@ -186,6 +188,9 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* find page */
 	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
+		return false;
+
+	if (!page->writable && write)
 		return false;
 
 	/* upload to pysical memory */
