@@ -217,7 +217,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
-		check_address(f->R.rdi);
+		// check_address(f->R.rdi);
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
@@ -501,7 +501,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	struct thread *cur = thread_current();
 
 
-	if (length == 0 || addr == 0)
+	if (length == 0 || addr == 0 || addr == NULL)
 		return NULL;
 	if ((int)addr % PGSIZE != 0 || offset % PGSIZE != 0)
 		return NULL;
