@@ -122,17 +122,37 @@ void do_munmap(void *addr)
 	/* vm_entry를 가리키는 가상 주소에 대한 물리페이지가 존재하고, dirty 하면 디스크에 메모리 내용을 기록 */
 	
 	/* pseudo code */
-	// /* 1) 주어진 인자 addr으로부터 연결된 page를 찾음 */
-	// struct supplemental_page_table *spt = thread_current()->spt;
-	// struct page *page = spt_find_page(spt, addr);
+	/* 1) 주어진 인자 addr으로부터 연결된 page를 찾음 */
+	struct thread *curr = thread_current();
+	struct supplemental_page_table *spt = &curr->spt;
+	struct page *page;
+	void *munmap_addr = addr;
+	struct file_info *file_info;
 
-	
 
 	/* 2) page와 연결된 list에 대한 내용을 매핑해제 및 삭제 */
 	/* 페이지 테이블 엔트리 제거 */
 	/* dirty 일시 디스크에 메모리 내용을 기록 */
 	// struct list list = page->mapped_list;
-	
+	while (true)
+	{
+		page = spt_find_page(spt, munmap_addr);
+		if (page == NULL)
+			return NULL;
+
+		file_info = (struct file_info *)page->uninit.aux;
+
+		if(pml4_is_dirty(curr->pml4, page->va)){
+			file_write_at(file_info->file, munmap_addr, file_info->page_read_bytes, file_info->ofs);
+			pml4_set_dirty(curr->pml4, page->va, 0);
+		}
+
+		pml4_clear_page(curr->pml4, munmap_addr);
+		munmap_addr += PGSIZE;
+	}
+
+
+
 	// while(list_empty(list)){
 	// 	struct list_elem *list_elem = list_pop_front(list);
 	// 	struct page *remove_page = list_entry(list_elem, struct page, mapped_page);
