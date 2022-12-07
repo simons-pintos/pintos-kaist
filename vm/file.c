@@ -57,19 +57,22 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 {
 	ASSERT(pg_ofs(addr) == 0);
 	ASSERT(offset % PGSIZE == 0);
-	file_seek(file, offset);
+	// file_seek(file, offset);
 	struct thread *curr = thread_current();
 	
-	curr->start_address = addr;
 	struct mmap_file *mmap_file = (struct mmap_file *)malloc(sizeof(struct mmap_file));
 
-	size_t read_bytes = length > file_length(file) ? file_length(file) : length;
+	mmap_file->file = file_reopen(file);
+	if (mmap_file->file == NULL)
+		return NULL;
+
+	size_t read_bytes = length > file_length(mmap_file->file) ? file_length(mmap_file->file) : length;
 	size_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
+	uintptr_t upage = addr;
+	off_t ofs = offset;
 
 	list_init(&mmap_file->page_list);
 	list_push_back(&curr->mmap_list, &mmap_file->elem);
-
-
 
 	// list_init(&file_info->mmap_list);
 	// list_push_back();
@@ -81,8 +84,8 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		/* Set up aux to pass information to the lazy_load_segment */
 		struct file_info *file_info = (struct file_info *)malloc(sizeof(struct file_info));
 
-		file_info->file = file;
-		file_info->ofs = offset;
+		file_info->file = mmap_file->file;
+		file_info->ofs = ofs;
 		file_info->page_read_bytes = page_read_bytes;
 		file_info->page_zero_bytes = page_zero_bytes;
 
@@ -90,26 +93,24 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		/* 해당 Virtual Memory에 struct page 할당해주며 load 되기 전까지는 uninit page */
 		/* page fault로 physical memory로 load 될 때 할당될 때 받은 page type으로 변환, */
 		/* lazy_load_sement 함수를 실행시켜서 upload함 */
-		if(!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, file_info))
+		if(!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_segment, file_info))
 			return NULL;
 
 		
-		struct page *page = spt_find_page(&curr->spt, addr);
+		struct page *page = spt_find_page(&curr->spt, upage);
 		if (page == NULL)
 			return false;
 
-		// list_push_back(mmap_file->page_list, )
-		
-		// list_push_back(&file_info->mmap_list, &page->mapped_elem);
+		list_push_back(&mmap_file->page_list, &page->mapped_elem);
 		
 		/* Advance */
-		read_bytes -= page_read_bytes; // 남은 read_bytes 갱신
-		zero_bytes -= page_zero_bytes; // 남은 zero_bytes 갱신
-		addr += PGSIZE; 		   // virtual address를 옮겨서 다음 page space를 가리키게 함
-		offset += PGSIZE; 	       // 다음 page에 mapping 시킬 file 위치 갱신
+		read_bytes -= page_read_bytes;  // 남은 read_bytes 갱신
+		zero_bytes -= page_zero_bytes;  // 남은 zero_bytes 갱신
+		upage += PGSIZE; 		        // virtual address를 옮겨서 다음 page space를 가리키게 함
+		ofs += PGSIZE; 	                // 다음 page에 mapping 시킬 file 위치 갱신
 		
 	}
-	// return start_address;
+	return addr;
 }
 
 /* Do the munmap */

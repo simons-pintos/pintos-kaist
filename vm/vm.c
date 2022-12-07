@@ -174,7 +174,7 @@ vm_handle_wp(struct page *page UNUSED)
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
 	// printf("[Debug]thread_name: %s\n", thread_name());
-	printf("[Debug]addr: %p\n", addr);
+	// printf("[Debug]addr: %p\n", addr);
 	// printf("[Debug]f->rsp: %p\n", f->rsp);
 	
 	// printf("=======vm_try_handle_fault :: start \n");
