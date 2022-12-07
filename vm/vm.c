@@ -61,8 +61,6 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 
 		// 1. malloc으로  page struct를 만든다.
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
-		// struct list new_list = new_page->mapped_list;
-		// struct list_elem new_elem = new_page->mapped_page;
 
 		switch (type)
 		{
@@ -112,8 +110,8 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
-	// vm_dealloc_page(page);
-	// return true;
+	vm_dealloc_page(page);
+	return true;
 }
 
 /* Get the struct frame, that will be evicted. */
@@ -176,7 +174,7 @@ vm_handle_wp(struct page *page UNUSED)
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
 	// printf("[Debug]thread_name: %s\n", thread_name());
-	// printf("[Debug]addr: %p\n", addr);
+	printf("[Debug]addr: %p\n", addr);
 	// printf("[Debug]f->rsp: %p\n", f->rsp);
 	
 	// printf("=======vm_try_handle_fault :: start \n");

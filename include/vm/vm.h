@@ -55,9 +55,8 @@ struct page
 	/* spt 관련  */
 	struct hash_elem hash_elem;
 
-	// /* virtual page list which is mapped */
-	// struct list mapped_list;
-	// struct list_elem mapped_page;
+	/* mapped page */
+	struct list_elem mapped_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */

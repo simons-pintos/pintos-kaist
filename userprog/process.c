@@ -883,17 +883,15 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-struct file_info
-{
-	struct file *file;
-	off_t ofs;
-	uint32_t page_read_bytes;
-	uint32_t page_zero_bytes;
-};
+// struct file_info
+// {
+// 	struct file *file;
+// 	off_t ofs;
+// 	uint32_t page_read_bytes;
+// 	uint32_t page_zero_bytes;
+// };
 
-static bool
-lazy_load_segment(struct page *page, void *aux)
-{
+bool lazy_load_segment(struct page *page, void *aux){
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
