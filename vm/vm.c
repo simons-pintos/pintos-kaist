@@ -157,6 +157,9 @@ vm_get_frame(void)
 static void
 vm_stack_growth(void *addr)
 {
+	if (spt_find_page(&thread_current()->spt, addr))
+		return;
+
 	uintptr_t stack_bottom = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, stack_bottom, true);
 }
@@ -179,27 +182,17 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (is_kernel_vaddr(addr) || addr == NULL)
 		return false;
 
+	/* stack growth */
+	uintptr_t stack_limit = USER_STACK - (1 << 20);
+	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
+
+	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
+		vm_stack_growth(addr);
+
+	/* find page */
 	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
-	{
-		/* stack growth */
-		uintptr_t stack_limit = USER_STACK - (1 << 20);
-		uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
-
-		if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
-		{
-			vm_stack_growth(addr);
-			page = spt_find_page(spt, addr);
-		}
-
-		else
-			return false;
-	}
-
-	// /* find page */
-	// struct page *page = spt_find_page(spt, addr);
-	// if (page == NULL)
-	// 	return false;
+		return false;
 
 	if (!page->writable && write)
 		return false;
