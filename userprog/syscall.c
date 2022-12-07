@@ -91,9 +91,9 @@ struct page *check_address(uint64_t addr)
 void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 {
 	uintptr_t start_page = pg_round_down(buffer);
-	uintptr_t end_page = pg_round_down(buffer + size);
+	uintptr_t end_page = pg_round_down(buffer + size - 1);
 
-	for (; start_page > end_page; start_page += PGSIZE)
+	for (; start_page <= end_page; start_page += PGSIZE)
 	{
 		struct page *page = check_address(start_page);
 		if (page == NULL)
@@ -197,7 +197,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: void *buffer
 		// argv[2]: unsigned size
-		// check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -206,7 +206,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: const void *buffer
 		// argv[2]: unsigned size
-		// check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -402,7 +402,7 @@ int write(int fd, const void *buffer, unsigned size)
 
 	int write_result;
 
-	//표준 출력
+	// 표준 출력
 	if (f == STDOUT)
 	{
 		putbuf(buffer, size);

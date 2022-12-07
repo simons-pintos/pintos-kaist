@@ -170,7 +170,7 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	// printf("[Debug]thread_name: %s\n", thread_name());
+	// printf("[Debug]addr: %p\n", addr);
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
@@ -179,17 +179,27 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (is_kernel_vaddr(addr) || addr == NULL)
 		return false;
 
-	/* stack growth */
-	uintptr_t stack_limit = USER_STACK - (1 << 20);
-	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
-
-	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
-		vm_stack_growth(addr);
-
-	/* find page */
 	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
-		return false;
+	{
+		/* stack growth */
+		uintptr_t stack_limit = USER_STACK - (1 << 20);
+		uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
+
+		if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
+		{
+			vm_stack_growth(addr);
+			page = spt_find_page(spt, addr);
+		}
+
+		else
+			return false;
+	}
+
+	// /* find page */
+	// struct page *page = spt_find_page(spt, addr);
+	// if (page == NULL)
+	// 	return false;
 
 	if (!page->writable && write)
 		return false;
@@ -229,8 +239,7 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
-	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	if (!pml4_set_page(curr->pml4, page->va, frame->kva, true))
+	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
 		return false;
 
 	return swap_in(page, frame->kva);
