@@ -61,15 +61,19 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 
 		// 1. malloc으로  page struct를 만든다.
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
+		// struct list new_list = new_page->mapped_list;
+		// struct list_elem new_elem = new_page->mapped_page;
 
 		switch (type)
 		{
 		case VM_ANON:
 			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			// list_push_back(&new_list, &new_elem);
 			break;
 
 		case VM_FILE:
 			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+			// list_push_back(&new_list, &new_elem);
 			break;
 		}
 
