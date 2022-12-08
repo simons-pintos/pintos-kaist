@@ -11,6 +11,9 @@
 #include "vm/anon.h"
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
+struct list frame_table;
+struct list_elem *clock_ptr;
+
 void vm_init(void)
 {
 	vm_anon_init();
@@ -21,6 +24,8 @@ void vm_init(void)
 	register_inspect_intr();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+
+	list_init(&frame_table);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -53,14 +58,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
-	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
-		/* TODO: Create the page, fetch the initialier according to the VM type,
-		 * TODO: and then create "uninit" page struct by calling uninit_new. You
-		 * TODO: should modify the field after calling the uninit_new. */
-
-		// 1. malloc으로  page struct를 만든다.
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
 
 		switch (VM_TYPE(type))
@@ -112,11 +111,33 @@ void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 	// return true;
 }
 
+void list_clock_next(struct list *l)
+{
+	clock_ptr = clock_ptr->next;
+	if (list_tail(l) == clock_ptr)
+		clock_ptr = list_begin(l);
+}
+
 /* Get the struct frame, that will be evicted. */
 static struct frame *vm_get_victim(void)
 {
+	struct thread *curr = thread_current();
 	struct frame *victim = NULL;
 	/* TODO: The policy for eviction is up to you. */
+
+	while (1)
+	{
+		list_clock_next(&frame_table);
+		victim = list_entry(clock_ptr, struct frame, elem);
+
+		if (pml4_is_accessed(curr->pml4, victim->page->va))
+		{
+			pml4_set_accessed(curr->pml4, victim->page->va, false);
+			continue;
+		}
+
+		break;
+	}
 
 	return victim;
 }
@@ -126,10 +147,23 @@ static struct frame *vm_get_victim(void)
 static struct frame *
 vm_evict_frame(void)
 {
-	struct frame *victim UNUSED = vm_get_victim();
-	/* TODO: swap out the victim and return the evicted frame. */
+	bool succ = false;
+	struct frame *victim = vm_get_victim();
 
-	return NULL;
+	if (victim->page == NULL)
+		return victim;
+
+	struct page *page = victim->page;
+
+	if (swap_out(page) == false)
+		return NULL;
+
+	page->frame = NULL;
+	victim->page = NULL;
+
+	pml4_clear_page(thread_current()->pml4, page->va);
+
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -140,10 +174,19 @@ static struct frame *
 vm_get_frame(void)
 {
 	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+	if (frame == NULL)
+		return NULL;
 
 	frame->kva = palloc_get_page(PAL_USER);
+	if (frame->kva)
+		list_push_back(&frame_table, &frame->elem);
+	else
+		frame = vm_evict_frame();
+
+	clock_ptr = &frame->elem;
+
 	if (frame->kva == NULL)
-		PANIC("TO DO");
+		PANIC("NO FRAME");
 
 	frame->page = NULL;
 
@@ -200,6 +243,12 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
+	// if (page->va > 0x400000 && page->va < 0x600000)
+	// {
+	// 	printf("[DEBUG][%p]succ: %d\n", addr, succ);
+	// 	for (int i = 0; i < 10; i++)
+	// 		printf("[DEBUG][%p][%d]%x\n", addr, i, *(int *)(addr + (i * 4)));
+	// }
 	return succ;
 }
 
