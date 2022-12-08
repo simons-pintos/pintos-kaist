@@ -2,6 +2,7 @@
 #include "vm/vm.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
+#include "threads/mmu.h"
 
 static bool file_backed_swap_in(struct page *page, void *kva);
 static bool file_backed_swap_out(struct page *page);
@@ -74,8 +75,6 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 	list_init(&mmap_file->page_list);
 	list_push_back(&curr->mmap_list, &mmap_file->elem);
 
-	// list_init(&file_info->mmap_list);
-	// list_push_back();
 	
 	while (read_bytes > 0 || zero_bytes > 0)
 	{
@@ -110,6 +109,8 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		ofs += PGSIZE; 	                // 다음 page에 mapping 시킬 file 위치 갱신
 		
 	}
+	mmap_file->mapid = addr;
+
 	return addr;
 }
 
@@ -121,59 +122,71 @@ void do_munmap(void *addr)
 	/* 페이지 테이블 엔트리 제거 */
 	/* vm_entry를 가리키는 가상 주소에 대한 물리페이지가 존재하고, dirty 하면 디스크에 메모리 내용을 기록 */
 	
-	/* pseudo code */
-	/* 1) 주어진 인자 addr으로부터 연결된 page를 찾음 */
+	/* 1) 주어진 스레드에 대해 파일을 찾아 해당 파일과 연관되는 mmap_list 찾기 */
 	struct thread *curr = thread_current();
-	struct supplemental_page_table *spt = &curr->spt;
-	struct page *page;
 	void *munmap_addr = addr;
+	struct mmap_file *mmap_file;
+	struct page *page;
 	struct file_info *file_info;
 
+	struct list *mmap_list = &curr->mmap_list;
+	struct list_elem *elem;
+	int mapid;
 
-	/* 2) page와 연결된 list에 대한 내용을 매핑해제 및 삭제 */
-	/* 페이지 테이블 엔트리 제거 */
-	/* dirty 일시 디스크에 메모리 내용을 기록 */
-	// struct list list = page->mapped_list;
-	while (true)
-	{
-		page = spt_find_page(spt, munmap_addr);
-		if (page == NULL)
-			return NULL;
+	/* thread에 내재되어 있는 mmap_list 순회하여 addr과 일치하는 mapid 검색 */
+	for (elem = list_begin(mmap_list); elem != list_end(mmap_list); elem = list_next(elem)) {
+		mmap_file = list_entry(elem, struct mmap_file, elem);
+		if (mmap_file->mapid == addr){
+			break;
+		}
+	}
 
-		file_info = (struct file_info *)page->uninit.aux;
+	/* page_list에서 page를 하나씩 꺼내어서 dirty일 시 파일에 쓰고 종료*/
+	for (elem = list_begin(&mmap_file->page_list); elem != list_end(&mmap_file->page_list); elem = list_next(elem)){
+		page = list_entry(elem, struct page, mapped_elem);
+		file_info = page->uninit.aux;   // ??? 이 코드를 제대로 모르겠음 (왜 aux가 file_info 인건지)
+		size_t ofs = file_info -> ofs;
+		
+		if (pml4_is_dirty(curr->pml4, page->va)){
 
-		if(pml4_is_dirty(curr->pml4, page->va)){
-			file_write_at(file_info->file, munmap_addr, file_info->page_read_bytes, file_info->ofs);
+			file_write_at(mmap_file->file, munmap_addr, file_info->page_read_bytes, ofs);
 			pml4_set_dirty(curr->pml4, page->va, 0);
 		}
-
 		pml4_clear_page(curr->pml4, munmap_addr);
-		munmap_addr += PGSIZE;
+		munmap_addr =+ PGSIZE;
+		ofs =+ PGSIZE;
+		}
 	}
 
 
+	/****** 중선 코드 ******/
+	// /* pseudo code */
+	// /* 1) 주어진 인자 addr으로부터 연결된 page를 찾음 */
+	// struct thread *curr = thread_current();
+	// struct supplemental_page_table *spt = &curr->spt;
+	// struct page *page;
+	// void *munmap_addr = addr;
+	// struct file_info *file_info;
 
-	// while(list_empty(list)){
-	// 	struct list_elem *list_elem = list_pop_front(list);
-	// 	struct page *remove_page = list_entry(list_elem, struct page, mapped_page);
 
-		
+	// /* 2) page와 연결된 list에 대한 내용을 매핑해제 및 삭제 */
+	// /* 페이지 테이블 엔트리 제거 */
+	// /* dirty 일시 디스크에 메모리 내용을 기록 */
+	// // struct list list = page->mapped_list;
+	// while (true)
+	// {
+	// 	page = spt_find_page(spt, munmap_addr);
+	// 	if (page == NULL)
+	// 		return NULL;
+
+	// 	file_info = (struct file_info *)page->uninit.aux;
+
+	// 	if(pml4_is_dirty(curr->pml4, page->va)){
+	// 		file_write_at(file_info->file, munmap_addr, file_info->page_read_bytes, file_info->ofs);
+	// 		pml4_set_dirty(curr->pml4, page->va, 0);
+	// 	}
+
+	// 	pml4_clear_page(curr->pml4, munmap_addr);
+	// 	munmap_addr += PGSIZE;
 	// }
-	
-	// list_pop_front();
-
-
-
-
-
-
-	// spt_find_page(struct supplemental_page_table *spt, void *va);
-
-	// struct file_page *file_page = 
-
-
-
-
-
-
-}
+// }
