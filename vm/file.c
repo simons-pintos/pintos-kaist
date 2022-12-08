@@ -1,5 +1,6 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
+#include <string.h>
 #include "vm/vm.h"
 #include "userprog/process.h"
 #include "threads/vaddr.h"
@@ -26,7 +27,6 @@ void vm_file_init(void)
 bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	struct uninit_page *uninit = &page->uninit;
-
 	memset(uninit, 0, sizeof(struct uninit_page));
 
 	/* Set up the handler */
@@ -45,6 +45,8 @@ file_backed_swap_in(struct page *page, void *kva)
 	if (file_read_at(file_page->file, kva, file_page->length, file_page->offset) != (int)file_page->length)
 		return false;
 
+	memset(kva + file_page->length, 0, PGSIZE - file_page->length);
+
 	// printf("[DEBUG][file][swap _in]%p\n", page->va);
 	return true;
 }
@@ -57,8 +59,13 @@ file_backed_swap_out(struct page *page)
 	struct file_page *file_page = &page->file;
 
 	if (pml4_is_dirty(curr->pml4, page->va))
-		if (file_write_at(file_page->file, page->frame->kva, file_page->length, file_page->offset) != (int)file_page->length)
+	{
+		int check = file_write_at(file_page->file, page->frame->kva, file_page->length, file_page->offset);
+		if (check != file_page->length)
 			return false;
+
+		pml4_set_dirty(curr->pml4, page->va, 0);
+	}
 
 	// printf("[DEBUG][file][swap_out]%p\n", page->va);
 	return true;
@@ -188,7 +195,7 @@ void do_munmap(void *addr)
 			pml4_set_dirty(curr->pml4, page->va, 0);
 		}
 
-		pml4_clear_page(curr->pml4, addr);
+		pml4_clear_page(curr->pml4, page->va);
 	}
 
 	file_close(mmap_file->file);

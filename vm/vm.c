@@ -14,7 +14,6 @@
  * intialize codes. */
 struct list frame_table;
 struct list_elem *clock_ptr;
-struct lock swap_lock;
 
 void vm_init(void)
 {
@@ -28,7 +27,6 @@ void vm_init(void)
 	/* TODO: Your code goes here. */
 
 	list_init(&frame_table);
-	lock_init(&swap_lock);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -110,8 +108,21 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
-	// vm_dealloc_page(page);
-	// return true;
+	struct thread *curr = thread_current();
+	if (pml4_get_page(curr->pml4, page->va))
+	{
+		pml4_clear_page(curr->pml4, page->va);
+
+		struct frame *frame = page->frame;
+		free(frame->kva);
+		list_remove(&frame->elem);
+		free(frame);
+	}
+
+	if (hash_delete(spt, &page->hash_elem))
+		vm_dealloc_page(page);
+
+	return;
 }
 
 void list_clock_next(struct list *l)
@@ -150,18 +161,11 @@ static struct frame *vm_get_victim(void)
 static struct frame *
 vm_evict_frame(void)
 {
-	bool succ = false;
 	struct frame *victim = vm_get_victim();
 
-	if (victim->page == NULL)
-		return victim;
+	swap_out(victim->page);
 
 	struct page *page = victim->page;
-
-	succ = swap_out(page);
-	if (!succ)
-		return NULL;
-
 	page->frame = NULL;
 	victim->page = NULL;
 
@@ -188,9 +192,6 @@ vm_get_frame(void)
 		frame = vm_evict_frame();
 
 	clock_ptr = &frame->elem;
-
-	if (frame->kva == NULL)
-		PANIC("NO FRAME");
 
 	frame->page = NULL;
 
@@ -259,7 +260,7 @@ void vm_dealloc_page(struct page *page)
 /* Claim the page that allocate on VA. */
 bool vm_claim_page(void *va)
 {
-	struct page *page = spt_find_page(&thread_current()->spt.table, va);
+	struct page *page = spt_find_page(&thread_current()->spt, va);
 	if (page == NULL)
 		return false;
 
@@ -315,8 +316,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 		}
 		else
 		{
-			// VM_MARKER_0: fork에서 실행된 vm_alloc_page -> 인자에 lazy_load_segment와 aux 없음
-			vm_alloc_page(page_get_type(parent_page) | VM_MARKER_0, parent_page->va, parent_page->writable);
+			vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
 
 			vm_claim_page(parent_page->va);
 
@@ -373,12 +373,6 @@ static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b)
 void hash_destructor(struct hash_elem *hash_elem, void *aux)
 {
 	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
-
-	if (page->frame)
-	{
-		list_remove(&page->frame->elem);
-		free(page->frame);
-	}
 
 	vm_dealloc_page(page);
 }

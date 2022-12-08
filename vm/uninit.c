@@ -51,12 +51,6 @@ uninit_initialize(struct page *page, void *kva)
 	vm_initializer *init = uninit->init;
 	void *aux = uninit->aux;
 
-	/*
-	TODO: You may need to fix this function.
-	page_initializer: uninit page를 anon page나 file page로 변환
-	init: =loazy_load_segment, disk의 내용을 pysical memory에 load
-	*/
-
 	return uninit->page_initializer(page, uninit->type, kva) && (init ? init(page, aux) : true);
 }
 
@@ -68,8 +62,4 @@ static void
 uninit_destroy(struct page *page)
 {
 	struct uninit_page *uninit = &page->uninit;
-	/* TODO: Fill this function.
-	 * TODO: If you don't have anything to do, just return. */
-
-	// free(page->uninit.aux);
 }
