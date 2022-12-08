@@ -118,7 +118,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	// SYS_DUP2			/* Duplicate the file descriptor */
 
 	thread_current()->user_rsp = f->rsp;
-
 	switch (f->R.rax)
 	{
 	case SYS_HALT:

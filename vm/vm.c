@@ -74,7 +74,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 			// list_push_back(&new_list, &new_elem);
 			break;
 		}
-
+		
+		new_page->writable = writable;
 		/* TODO: Insert the page into the spt. */
 
 	return spt_insert_page(spt, new_page);
@@ -204,6 +205,13 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (page == NULL)
 		return false;
 
+	if (page->writable == 0){
+		if (write == 1){
+			return succ;
+		}
+		
+	}
+
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
@@ -244,7 +252,7 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	if (!pml4_set_page(curr->pml4, page->va, frame->kva, true))
+	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
 		return false;
 
 	// return true;
