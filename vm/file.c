@@ -26,20 +26,12 @@ void vm_file_init(void)
 bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	struct uninit_page *uninit = &page->uninit;
-	struct file_info *file_info = (struct file_info *)uninit->aux;
 
 	memset(uninit, 0, sizeof(struct uninit_page));
 
 	/* Set up the handler */
 	page->operations = &file_ops;
 	struct file_page *file_page = &page->file;
-
-	if (!(type & VM_MARKER_0))
-	{
-		file_page->file = file_info->file;
-		file_page->length = file_info->page_read_bytes;
-		file_page->offset = file_info->ofs;
-	}
 
 	return true;
 }
@@ -49,13 +41,27 @@ static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
 	struct file_page *file_page = &page->file;
+
+	if (file_read_at(file_page->file, kva, file_page->length, file_page->offset) != (int)file_page->length)
+		return false;
+
+	// printf("[DEBUG][file][swap _in]%p\n", page->va);
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out(struct page *page)
 {
+	struct thread *curr = thread_current();
 	struct file_page *file_page = &page->file;
+
+	if (pml4_is_dirty(curr->pml4, page->va))
+		if (file_write_at(file_page->file, page->frame->kva, file_page->length, file_page->offset) != (int)file_page->length)
+			return false;
+
+	// printf("[DEBUG][file][swap_out]%p\n", page->va);
+	return true;
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -63,6 +69,37 @@ static void
 file_backed_destroy(struct page *page)
 {
 	struct file_page *file_page = &page->file;
+}
+
+static bool lazy_load_file(struct page *page, void *aux)
+{
+	// aux로 전달 받은 file data
+	struct file_info *file_info = (struct file_info *)aux;
+
+	page->file.file = file_info->file;
+	page->file.length = file_info->page_read_bytes;
+	page->file.offset = file_info->ofs;
+
+	// struct file *file = file_info->file;
+	// off_t ofs = file_info->ofs;
+	// int page_read_bytes = file_info->page_read_bytes;
+	int page_zero_bytes = file_info->page_zero_bytes;
+
+	// load해야할 부분으로 file ofs 변경
+	file_seek(page->file.file, page->file.offset);
+
+	int temp;
+	// laod segment
+	if ((temp = file_read(page->file.file, page->frame->kva, page->file.length)) != page->file.length)
+	{
+		free(file_info);
+		return false;
+	}
+
+	// setup zero bytes space
+	memset(page->frame->kva + page->file.length, 0, page_zero_bytes);
+
+	return true;
 }
 
 /* Do the mmap */
@@ -97,7 +134,7 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		file_info->page_read_bytes = page_read_bytes;
 		file_info->page_zero_bytes = page_zero_bytes;
 
-		if (!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_segment, file_info))
+		if (!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_file, file_info))
 			return false;
 
 		struct page *page = spt_find_page(&curr->spt, upage);
@@ -142,14 +179,13 @@ void do_munmap(void *addr)
 	{
 		struct page *page = list_entry(temp_elem, struct page, mmap_elem);
 
-		// printf("[Debug]page->va: %p\n", page->va);
-		// printf("[Debug]is_dirty: %d\n", pml4_is_dirty(curr->pml4, addr));
-		// printf("[Debug]is_: %d\n", pml4_is_(curr->pml4, addr));
+		if (pml4_get_page(curr->pml4, page->va) == NULL)
+			continue;
 
-		if (pml4_is_dirty(curr->pml4, addr))
+		if (pml4_is_dirty(curr->pml4, page->va))
 		{
-			file_write_at(mmap_file->file, addr, page->file.length, page->file.offset);
-			pml4_set_dirty(curr->pml4, addr, 0);
+			file_write_at(mmap_file->file, page->va, page->file.length, page->file.offset);
+			pml4_set_dirty(curr->pml4, page->va, 0);
 		}
 
 		pml4_clear_page(curr->pml4, addr);

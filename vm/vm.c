@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include "threads/malloc.h"
+#include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
 #include "vm/vm.h"
@@ -13,6 +14,7 @@
  * intialize codes. */
 struct list frame_table;
 struct list_elem *clock_ptr;
+struct lock swap_lock;
 
 void vm_init(void)
 {
@@ -26,6 +28,7 @@ void vm_init(void)
 	/* TODO: Your code goes here. */
 
 	list_init(&frame_table);
+	lock_init(&swap_lock);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -155,7 +158,8 @@ vm_evict_frame(void)
 
 	struct page *page = victim->page;
 
-	if (swap_out(page) == false)
+	succ = swap_out(page);
+	if (!succ)
 		return NULL;
 
 	page->frame = NULL;
@@ -216,8 +220,6 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	// printf("[DEBUG]addr: %p\n", addr);
-
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
 
@@ -243,12 +245,6 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
-	// if (page->va > 0x400000 && page->va < 0x600000)
-	// {
-	// 	printf("[DEBUG][%p]succ: %d\n", addr, succ);
-	// 	for (int i = 0; i < 10; i++)
-	// 		printf("[DEBUG][%p][%d]%x\n", addr, i, *(int *)(addr + (i * 4)));
-	// }
 	return succ;
 }
 
@@ -284,7 +280,8 @@ vm_do_claim_page(struct page *page)
 	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
 		return false;
 
-	return swap_in(page, frame->kva);
+	bool succ = swap_in(page, frame->kva);
+	return succ;
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED);
@@ -308,24 +305,33 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 	while (hash_next(&i))
 	{
 		struct page *parent_page = hash_entry(hash_cur(&i), struct page, hash_elem);
-		void *aux = parent_page->uninit.aux;
 
 		if (parent_page->operations->type == VM_UNINIT)
 		{
 			vm_initializer *init = parent_page->uninit.init;
+			void *aux = parent_page->uninit.aux;
 
 			vm_alloc_page_with_initializer(parent_page->uninit.type, parent_page->va, parent_page->writable, init, aux);
 		}
 		else
 		{
 			// VM_MARKER_0: fork에서 실행된 vm_alloc_page -> 인자에 lazy_load_segment와 aux 없음
-			vm_alloc_page_with_initializer(page_get_type(parent_page) | VM_MARKER_0, parent_page->va, parent_page->writable, NULL, aux);
+			vm_alloc_page(page_get_type(parent_page) | VM_MARKER_0, parent_page->va, parent_page->writable);
 
 			vm_claim_page(parent_page->va);
 
 			struct page *child_page = spt_find_page(dst, parent_page->va);
 
-			memcpy(&child_page->file, &parent_page->file, sizeof(struct file_page));
+			if (page_get_type(child_page) == VM_FILE)
+			{
+				struct file_page *parent_anon = &parent_page->anon;
+				struct file_page *child_anon = &child_page->anon;
+
+				child_anon->file = file_reopen(parent_anon->file);
+				child_anon->length = parent_anon->length;
+				child_anon->offset = parent_anon->offset;
+			}
+
 			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
 		}
 	}
@@ -336,6 +342,16 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt)
 {
+	struct thread *curr = thread_current();
+
+	struct list_elem *temp_elem = list_begin(&curr->mmap_list);
+	for (; temp_elem != list_tail(&curr->mmap_list);)
+	{
+		struct mmap_file *temp_mmap = list_entry(temp_elem, struct mmap_file, elem);
+		temp_elem = temp_elem->next;
+		munmap(temp_mmap->addr);
+	}
+
 	hash_destroy(&spt->table, hash_destructor);
 }
 
@@ -357,6 +373,12 @@ static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b)
 void hash_destructor(struct hash_elem *hash_elem, void *aux)
 {
 	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
+
+	if (page->frame)
+	{
+		list_remove(&page->frame->elem);
+		free(page->frame);
+	}
 
 	vm_dealloc_page(page);
 }

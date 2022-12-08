@@ -62,6 +62,7 @@ anon_swap_in(struct page *page, void *kva)
 
 	bitmap_flip(swap_table, page_no);
 
+	// printf("[DEBUG][anon][swap_in]%p\n", page->va);
 	return true;
 }
 
@@ -82,6 +83,7 @@ anon_swap_out(struct page *page)
 
 	anon_page->swap_idx = page_no;
 
+	// printf("[DEBUG][anon][swap_out]%p\n", page->va);
 	return true;
 }
 /* Destroy the anonymous page. PAGE will be freed by the caller. */

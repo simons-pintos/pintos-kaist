@@ -335,6 +335,7 @@ __do_fork(void *aux)
 
 error:
 	// 자식 process를 load하는 과정에서 error가 나면 부모 process를 일단 깨우고 load 실패한 자식 process를 TID_ERROR로 종료
+
 	sema_up(&current->fork);
 	exit(-1);
 }
@@ -472,14 +473,6 @@ void process_exit(void)
 
 	// palloc으로 memory를 할당 받는 fdt를 free한다
 	palloc_free_multiple(curr->fdt, 3);
-
-	struct list_elem *temp_elem = list_begin(&curr->mmap_list);
-	for (; temp_elem != list_tail(&curr->mmap_list);)
-	{
-		struct mmap_file *temp_mmap = list_entry(temp_elem, struct mmap_file, elem);
-		temp_elem = temp_elem->next;
-		munmap(temp_mmap->addr);
-	}
 
 	process_cleanup();
 
@@ -890,8 +883,8 @@ install_page(void *upage, void *kpage, bool writable)
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
-
-bool lazy_load_segment(struct page *page, void *aux)
+static bool
+lazy_load_segment(struct page *page, void *aux)
 {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */

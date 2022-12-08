@@ -21,8 +21,4 @@ int process_wait(tid_t);
 void process_exit(void);
 void process_activate(struct thread *next);
 
-// #ifdef VM
-bool lazy_load_segment(struct page *page, void *aux);
-// #endif
-
 #endif /* userprog/process.h */

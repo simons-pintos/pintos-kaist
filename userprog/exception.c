@@ -153,12 +153,12 @@ page_fault(struct intr_frame *f)
 		return;
 #endif
 
-	printf("[DEBUG]fault_addr: %p\n", fault_addr);
+	// printf("[DEBUG]fault_addr: %p\n", fault_addr);
 
 	/* Count page faults. */
 	page_fault_cnt++;
 
-	exit(-5);
+	exit(-1);
 	/* If the fault is true fault, show info and exit. */
 	printf("Page fault at %p: %s error %s page in %s context.\n",
 		   fault_addr,
