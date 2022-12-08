@@ -88,6 +88,36 @@ void check_address(uint64_t addr)
 		exit(-1);
 }
 
+
+/* 최초시도 
+buffer의 유효성 검사
+1. kernel address 인가?
+2. NULL 값인가
+3. buffer + size가 한 페이지의 크기를 넘는가
+4. buffer_page == NULL 이거나 buffer_page의 write가 true 인지
+
+유효하지 않으면 thread 종료
+*/ c
+void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
+{
+	struct thread *curr = thread_current();
+	struct supplemental_page_table *spt = &curr->spt;
+	struct page *buffer_page = spt_find_page(spt, buffer);
+
+	// printf("======buffer_page : [%d]\n", buffer_page->writable);
+	// printf("======to_write    : [%d]\n", to_write);
+	printf("=======buffer : [%p]\n", &buffer);
+
+	if (is_kernel_vaddr(buffer) || buffer == NULL || is_kernel_vaddr(buffer+size))
+		exit(-1);
+	if (size > PGSIZE)
+		exit(-1);
+	if (buffer_page  == NULL || buffer_page->writable != to_write)
+		exit(-1);
+}
+
+
+
 /*
 The main system call interface
 user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어줌
@@ -181,6 +211,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[1]: void *buffer
 		// argv[2]: unsigned size
 		check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -190,6 +221,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[1]: const void *buffer
 		// argv[2]: unsigned size
 		check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -216,7 +248,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
-		// check_address(f->R.rdi);
+		check_address(f->R.rdi);
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
