@@ -96,21 +96,16 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 {
 	uintptr_t start_page = pg_round_down(buffer);
 	uintptr_t end_page = pg_round_down(buffer + size - 1);
-	// printf("======check_valid_buffer start \n");
-	if (buffer <= USER_STACK && (buffer + size - 1) >= (USER_STACK - (1 << 20)) && buffer >= rsp)
+	if (buffer <= USER_STACK && buffer >= rsp)
 		return;
 	
 	for (; start_page <= end_page ; start_page += PGSIZE)
 	{
 		struct page *page = check_address(start_page);
-		// printf("======check_valid_buffer start22 \n");
 
 		if (page == NULL)
 			exit(-1);
 
-		// printf("======to_write       : [%d]\n", to_write);
-		// printf("======page->writable : [%d]\n", page->writable);
-		// printf("======check_valid_buffer start33 \n");
 
 		// to_write : 버퍼(= 페이지)에 대한 쓰기, 읽기 접근 
 		if (to_write == true && page->writable == false)

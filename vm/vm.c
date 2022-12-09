@@ -174,18 +174,10 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	// printf("[Debug]thread_name: %s\n", thread_name());
 	
 	// printf("=======vm_try_handle_fault :: start \n");
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
-	struct page *page = spt_find_page(spt, addr);
-
-	// printf("[Debug]addr: %p\n", addr);
-	// printf("[Debug]f->rsp: %p\n", f->rsp);
-	// printf("[Debug]write: %d\n", write);
-	// printf("[Debug]writable: %d\n", page->writable);
-
 
 	/* check validation */
 	if (is_kernel_vaddr(addr) || addr == NULL)
@@ -196,36 +188,23 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
 	uintptr_t stack_bottom = pg_round_down(rsp);
 
-	// printf("[Debug2]stack_limit: %p\n", stack_limit);
-	// printf("[Debug2]rsp: %p\n", rsp);
-	// printf("[Debug2]stack_bottom: %p\n", stack_bottom);
-	// printf("[Debug2]addr: %p\n", addr);
-
 
 	if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit)
 		vm_stack_growth(addr);
 
 	/* find page */
+	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
 		return false;
 
+
+
 	if (!page->writable && write)
 		return false;
-	// if (page->writable == 0){
-	// 	if (write == 1){
-	// 		return succ;
-	// 	}
-		
-	// }
 
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
 
-	// printf("[Debug]page->va: %p\n", page->va);
-	// printf("[Debug]page->frame: %p\n", page->frame);
-	// printf("\n");
-	// printf("=======vm_try_handle_fault :: finish \n");
-	// printf("=======succ : %d\n", succ);
 	return succ;
 }
 
