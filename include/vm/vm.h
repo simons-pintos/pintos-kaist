@@ -75,6 +75,7 @@ struct frame
 {
 	void *kva;
 	struct page *page;
+	uint64_t *pml4;
 	struct list_elem elem;
 };
 

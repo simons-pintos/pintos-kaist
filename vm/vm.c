@@ -144,9 +144,9 @@ static struct frame *vm_get_victim(void)
 		list_clock_next(&frame_table);
 		victim = list_entry(clock_ptr, struct frame, elem);
 
-		if (pml4_is_accessed(curr->pml4, victim->page->va))
+		if (pml4_is_accessed(victim->pml4, victim->page->va))
 		{
-			pml4_set_accessed(curr->pml4, victim->page->va, false);
+			pml4_set_accessed(victim->pml4, victim->page->va, false);
 			continue;
 		}
 
@@ -167,9 +167,8 @@ vm_evict_frame(void)
 
 	struct page *page = victim->page;
 	page->frame = NULL;
-	victim->page = NULL;
 
-	pml4_clear_page(thread_current()->pml4, page->va);
+	pml4_clear_page(victim->pml4, page->va);
 
 	return victim;
 }
@@ -194,6 +193,7 @@ vm_get_frame(void)
 	clock_ptr = &frame->elem;
 
 	frame->page = NULL;
+	frame->pml4 = NULL;
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
@@ -276,6 +276,7 @@ vm_do_claim_page(struct page *page)
 
 	/* Set links */
 	frame->page = page;
+	frame->pml4 = curr->pml4;
 	page->frame = frame;
 
 	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
