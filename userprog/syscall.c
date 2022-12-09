@@ -84,8 +84,9 @@ struct page *check_address(uint64_t addr)
 {
 	// if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
 	// 	exit(-1);
-	if (is_kernel_vaddr(addr) || addr == NULL)
-		exit(-1);
+	if (is_kernel_vaddr(addr)){
+		// printf("===[DEBUG] addr : %d\n", addr);
+		exit(-1);}
 
 	return spt_find_page(&thread_current()->spt, addr);
 }

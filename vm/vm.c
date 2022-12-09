@@ -282,6 +282,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 			vm_claim_page(parent_page->va);
 
 			struct page *child_page = spt_find_page(dst, parent_page->va);
+			// printf("===[DEBUG] child_page : %d\n", child_page);
 			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
 		}
 	}

@@ -447,6 +447,7 @@ int process_wait(tid_t child_tid UNUSED)
 	// 위의 작업이 끝나기를 기다리는 자식 process를 wakeup
 	sema_up(&child->exit);
 
+	// printf("===[DEBUG] wait_status : %d\n", status);
 	return status;
 }
 

@@ -46,12 +46,14 @@ sort_chunks (const char *subprocess, int exit_status)
       char fn[128];
       char cmd[128];
       int handle;
-
+      // printf("===[DEBUG]================= start_line ===================\n");
       msg ("sort chunk %zu", i);
 
       /* Write this chunk to a file. */
       snprintf (fn, sizeof fn, "buf%zu", i);
+      // printf("===[DEBUG]before create fn : %s\n", fn);
       create (fn, CHUNK_SIZE);
+      // printf("===[DEBUG]after create fn : %s\n", fn);
       quiet = true;
       CHECK ((handle = open (fn)) > 1, "open \"%s\"", fn);
       write (handle, buf1 + CHUNK_SIZE * i, CHUNK_SIZE);
@@ -60,6 +62,7 @@ sort_chunks (const char *subprocess, int exit_status)
       /* Sort with subprocess. */
       snprintf (cmd, sizeof cmd, "%s %s", subprocess, fn);
       children[i] = fork (subprocess);
+      // printf("===[DEBUG] LET ME SEE : child[i] : %d\n", children[i]);
       if (children[i] == 0)
         CHECK ((children[i] = exec (cmd)) != -1, "exec \"%s\"", cmd);
       quiet = false;
@@ -70,7 +73,10 @@ sort_chunks (const char *subprocess, int exit_status)
       char fn[128];
       int handle;
 
+      // printf("===[DEBUG]children[i] : %d\n", children[i]);
+      // printf("===[DEBUG]exit_stats : %d\n", exit_status);
       CHECK (wait (children[i]) == exit_status, "wait for child %zu", i);
+      // printf("===[DEBUG]================= cut line ===================\n");
 
       /* Read chunk back from file. */
       quiet = true;
