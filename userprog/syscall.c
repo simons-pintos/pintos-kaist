@@ -536,7 +536,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 		return NULL;
 	if ((int)addr % PGSIZE != 0 || offset % PGSIZE != 0)
 		return NULL;
-	if (spt_find_page(&cur->spt, addr) == &addr)
+	if (spt_find_page(&cur->spt, addr))
 		return NULL;
 	if (file == NULL || file == STDIN || file == STDOUT)
 		return NULL;

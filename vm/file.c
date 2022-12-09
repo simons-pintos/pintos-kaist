@@ -60,13 +60,14 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 	ASSERT(offset % PGSIZE == 0);
 	// file_seek(file, offset);
 	struct thread *curr = thread_current();
-	
 	struct mmap_file *mmap_file = (struct mmap_file *)malloc(sizeof(struct mmap_file));
 
 	mmap_file->file = file_reopen(file);
 	if (mmap_file->file == NULL)
 		return NULL;
 
+	mmap_file->mapid = addr;
+	
 	size_t read_bytes = length > file_length(mmap_file->file) ? file_length(mmap_file->file) : length;
 	size_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
 	uintptr_t upage = addr;
@@ -109,7 +110,6 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		ofs += PGSIZE; 	                // 다음 page에 mapping 시킬 file 위치 갱신
 		
 	}
-	mmap_file->mapid = addr;
 
 	return addr;
 }
@@ -133,6 +133,7 @@ void do_munmap(void *addr)
 	struct list_elem *elem;
 	int mapid;
 
+
 	/* thread에 내재되어 있는 mmap_list 순회하여 addr과 일치하는 mapid 검색 */
 	for (elem = list_begin(mmap_list); elem != list_end(mmap_list); elem = list_next(elem)) {
 		mmap_file = list_entry(elem, struct mmap_file, elem);
@@ -141,20 +142,25 @@ void do_munmap(void *addr)
 		}
 	}
 
+	mmap_file->file = file_reopen(mmap_file->file);
+	if (mmap_file->file == NULL)
+		return NULL;
+
 	/* page_list에서 page를 하나씩 꺼내어서 dirty일 시 파일에 쓰고 종료*/
 	for (elem = list_begin(&mmap_file->page_list); elem != list_end(&mmap_file->page_list); elem = list_next(elem)){
 		page = list_entry(elem, struct page, mapped_elem);
+		// printf("===[DEBUG] page : %p\n", page->va);
 		file_info = page->uninit.aux;   // ??? 이 코드를 제대로 모르겠음 (왜 aux가 file_info 인건지)
 		size_t ofs = file_info -> ofs;
 		
-		if (pml4_is_dirty(curr->pml4, page->va)){
+		if ((pml4_is_dirty(curr->pml4, page->va)) && (file_info->page_read_bytes == PGSIZE)){
 
-			file_write_at(mmap_file->file, munmap_addr, file_info->page_read_bytes, ofs);
+			file_write_at(mmap_file->file, page->va, file_info->page_read_bytes, ofs);
 			pml4_set_dirty(curr->pml4, page->va, 0);
 		}
-		pml4_clear_page(curr->pml4, munmap_addr);
-		// munmap_addr =+ PGSIZE;
+		pml4_clear_page(curr->pml4, page->va);
 		// ofs =+ PGSIZE;
+		// munmap_addr =+ PGSIZE;
 		}
 		file_close(file_info->file);
 		list_remove(&mmap_file->elem);
