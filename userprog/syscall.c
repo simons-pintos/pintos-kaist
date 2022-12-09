@@ -247,7 +247,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
-		check_address(f->R.rdi);
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
@@ -538,6 +537,16 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	if (spt_find_page(&cur->spt, addr) == &addr)
 		return NULL;
 	if (file == NULL || file == STDIN || file == STDOUT)
+		return NULL;
+
+	/*for mmap-kernel validation*/
+	if (is_kernel_vaddr(addr))
+		return NULL;
+	if (addr > KERN_BASE + 10000000)
+		return NULL;
+	if (is_kernel_vaddr(addr + length))
+		return NULL;
+	if (addr + length == NULL)
 		return NULL;
 
 	return do_mmap(addr, length, writable, file, offset);
