@@ -153,9 +153,14 @@ void do_munmap(void *addr)
 			pml4_set_dirty(curr->pml4, page->va, 0);
 		}
 		pml4_clear_page(curr->pml4, munmap_addr);
-		munmap_addr =+ PGSIZE;
-		ofs =+ PGSIZE;
+		// munmap_addr =+ PGSIZE;
+		// ofs =+ PGSIZE;
 		}
+		file_close(file_info->file);
+		list_remove(&mmap_file->elem);
+		free(mmap_file);
+
+		return;
 	}
 
 
