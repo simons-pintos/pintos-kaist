@@ -315,6 +315,13 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+	struct list_elem *soon_die_elem = list_begin(&thread_current()->mmap_list);
+		while (soon_die_elem != list_end(&thread_current()->mmap_list))
+		{
+			struct mmap_file *soon_die_file = list_entry(soon_die_elem, struct mmap_file, elem);
+			soon_die_elem = soon_die_elem->next;
+			munmap(soon_die_file->mapid);
+		}
 
 	hash_destroy(&spt->table, hash_destructor);
 }
