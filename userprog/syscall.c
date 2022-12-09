@@ -84,7 +84,7 @@ struct page *check_address(uint64_t addr)
 {
 	// if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
 	// 	exit(-1);
-	if (is_kernel_vaddr(addr)){
+	if (is_kernel_vaddr(addr) || addr == NULL){
 		// printf("===[DEBUG] addr : %d\n", addr);
 		exit(-1);}
 
@@ -323,6 +323,7 @@ initial_size를 가진 file 생성
 */
 bool create(const char *file, unsigned initial_size)
 {
+	// printf("===[DEBUG] file : %s\n", file);
 	return filesys_create(file, initial_size);
 }
 
