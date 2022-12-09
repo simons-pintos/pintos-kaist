@@ -33,8 +33,6 @@ void syscall_handler(struct intr_frame *);
 #define STDOUT 2 // 표준 출력
 
 // readers-writers를 위한 semaphore와 cnt
-struct semaphore mutex, wrt;
-int read_cnt;
 
 void halt(void);
 void exit(int status);
@@ -58,9 +56,7 @@ int dup2(int oldfd, int newfd);
 
 void syscall_init(void)
 {
-	sema_init(&mutex, 1);
-	sema_init(&wrt, 1);
-	read_cnt = 0;
+	lock_init(&file_lock);
 
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
@@ -323,9 +319,9 @@ bool remove(const char *file)
 /* 입력 받은 file을 열어서 file descripter 생성 */
 int open(const char *file)
 {
-	sema_down(&wrt);
+	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
-	sema_up(&wrt);
+	lock_release(&file_lock);
 
 	if (f == NULL)
 		return -1;
@@ -378,19 +374,9 @@ int read(int fd, void *buffer, unsigned size)
 	}
 	else
 	{
-		sema_down(&mutex);
-		read_cnt++;
-		if (read_cnt == 1)
-			sema_down(&wrt);
-		sema_up(&mutex);
-
+		lock_acquire(&file_lock);
 		read_result = file_read(f, buffer, size);
-
-		sema_down(&mutex);
-		read_cnt--;
-		if (read_cnt == 0)
-			sema_up(&wrt);
-		sema_up(&mutex);
+		lock_release(&file_lock);
 	}
 
 	return read_result;
@@ -413,9 +399,9 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 	else
 	{
-		sema_down(&wrt);
+		lock_acquire(&file_lock);
 		write_result = file_write(f, buffer, size);
-		sema_up(&wrt);
+		lock_release(&file_lock);
 	}
 
 	return write_result;

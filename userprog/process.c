@@ -61,27 +61,27 @@ int process_add_file(struct file *f)
 {
 	struct thread *curr = thread_current();
 
-	while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
-		curr->fd_idx++;
-
-	if (curr->fd_idx >= FDT_LIMIT)
-		return -1;
-
-	curr->fdt[curr->fd_idx] = f;
-	return curr->fd_idx;
-
-	// int fd = 2;
-	// while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
-	// 	fd++;
-
-	// if (fd >= FDT_LIMIT)
-	// 	return -1;
-
-	// curr->fdt[fd] = f;
-	// if (curr->fd_idx == fd)
+	// while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
 	// 	curr->fd_idx++;
 
-	// return fd;
+	// if (curr->fd_idx >= FDT_LIMIT)
+	// 	return -1;
+
+	// curr->fdt[curr->fd_idx] = f;
+	// return curr->fd_idx;
+
+	int fd = 2;
+	while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
+		fd++;
+
+	if (fd >= FDT_LIMIT)
+		return -1;
+
+	curr->fdt[fd] = f;
+	if (curr->fd_idx == fd)
+		curr->fd_idx++;
+
+	return fd;
 }
 
 /*
@@ -472,7 +472,7 @@ void process_exit(void)
 		close(i);
 
 	// palloc으로 memory를 할당 받는 fdt를 free한다
-	palloc_free_multiple(curr->fdt, 3);
+	palloc_free_page(curr->fdt);
 
 	process_cleanup();
 
@@ -596,6 +596,7 @@ load(const char *file_name, struct intr_frame *if_)
 	struct file *file = NULL;
 	off_t file_ofs;
 	bool success = false;
+	bool file_succ;
 	int i;
 
 	char *save_ptr, *token;
@@ -613,7 +614,10 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	/* Open executable file. */
+	lock_acquire(&file_lock);
 	file = filesys_open(argv[0]);
+	lock_release(&file_lock);
+
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", argv[0]);
@@ -626,13 +630,16 @@ load(const char *file_name, struct intr_frame *if_)
 	// 실행하려고 open한 file을 write하지 못하게 한다
 	file_deny_write(file);
 
+	lock_acquire(&file_lock);
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
 		|| ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Phdr) || ehdr.e_phnum > 1024)
 	{
+		lock_release(&file_lock);
 		printf("load: %s: error loading executable\n", argv[0]);
 		goto done;
 	}
+	lock_release(&file_lock);
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -642,10 +649,15 @@ load(const char *file_name, struct intr_frame *if_)
 
 		if (file_ofs < 0 || file_ofs > file_length(file))
 			goto done;
-		file_seek(file, file_ofs);
 
+		lock_acquire(&file_lock);
+		file_seek(file, file_ofs);
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
+		{
+			lock_release(&file_lock);
 			goto done;
+		}
+		lock_release(&file_lock);
 
 		file_ofs += sizeof phdr;
 

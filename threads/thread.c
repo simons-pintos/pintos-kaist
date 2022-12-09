@@ -128,7 +128,7 @@ void thread_sleep(int64_t ticks)
 
 void test_max_priority(void)
 {
-	if (!list_empty(&ready_list))
+	if (!intr_context() && !list_empty(&ready_list))
 	{
 		struct thread *ready_max_t = list_entry(list_begin(&ready_list), struct thread, elem);
 		if (ready_max_t->priority > thread_current()->priority)
@@ -308,7 +308,7 @@ tid_t thread_create(const char *name, int priority,
 
 	해결 방법은 못 찾음
 	 */
-	t->fdt = palloc_get_multiple(PAL_ZERO, 3);
+	t->fdt = palloc_get_page(PAL_ZERO);
 	if (t->fdt == NULL)
 		return TID_ERROR;
 
