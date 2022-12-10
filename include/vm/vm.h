@@ -50,12 +50,11 @@ struct page
 
 	/* Your implementation */
 	bool writable;
+	uint64_t pml4;
 
-	/* spt 관련  */
 	struct hash_elem hash_elem;
-
-	/* mmap 관련 */
 	struct list_elem mmap_elem;
+	struct list_elem cow_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -76,6 +75,8 @@ struct frame
 	void *kva;
 	struct page *page;
 	uint64_t *pml4;
+	int cow_cnt;
+	struct list child_pages;
 	struct list_elem elem;
 };
 

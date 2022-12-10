@@ -268,7 +268,6 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-
 	if (parent->fd_idx >= FDT_LIMIT)
 		goto error;
 
@@ -335,7 +334,6 @@ __do_fork(void *aux)
 
 error:
 	// 자식 process를 load하는 과정에서 error가 나면 부모 process를 일단 깨우고 load 실패한 자식 process를 TID_ERROR로 종료
-
 	sema_up(&current->fork);
 	exit(-1);
 }
@@ -491,6 +489,7 @@ process_cleanup(void)
 
 #ifdef VM
 	supplemental_page_table_kill(&curr->spt);
+	return;
 #endif
 
 	uint64_t *pml4;

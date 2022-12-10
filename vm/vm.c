@@ -75,6 +75,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		}
 
 		new_page->writable = writable;
+		new_page->pml4 = thread_current()->pml4;
 
 		return spt_insert_page(spt, new_page);
 	}
@@ -194,6 +195,8 @@ vm_get_frame(void)
 
 	frame->page = NULL;
 	frame->pml4 = NULL;
+	frame->cow_cnt = 0;
+	list_init(&frame->child_pages);
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
@@ -216,6 +219,39 @@ vm_stack_growth(void *addr)
 static bool
 vm_handle_wp(struct page *page UNUSED)
 {
+	struct thread *curr = thread_current();
+	struct frame *old_frame = page->frame;
+
+	page->frame = NULL;
+	pml4_clear_page(curr->pml4, page->va);
+
+	struct frame *new_frame = vm_get_frame();
+
+	/* Set links */
+	new_frame->page = page;
+	new_frame->pml4 = curr->pml4;
+	list_push_back(&new_frame->child_pages, &page->cow_elem);
+
+	page->frame = new_frame;
+
+	if (!pml4_set_page(curr->pml4, page->va, new_frame->kva, page->writable))
+		return false;
+
+	memcpy(new_frame->kva, old_frame->kva, PGSIZE);
+
+	old_frame->cow_cnt--;
+
+	if (old_frame->cow_cnt == 0)
+	{
+		struct list_elem *temp_elem = list_begin(&old_frame->child_pages);
+		struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
+
+		pml4_clear_page(temp_page->pml4, temp_page->va);
+		if (!pml4_set_page(temp_page->pml4, temp_page->va, old_frame->kva, temp_page->writable))
+			return false;
+	}
+
+	return true;
 }
 
 /* Return true on success */
@@ -239,6 +275,10 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	struct page *page = spt_find_page(spt, addr);
 	if (page == NULL)
 		return false;
+
+	if (write && !not_present && page->frame->cow_cnt > 0)
+		if (vm_handle_wp(page))
+			return true;
 
 	if (!page->writable && write)
 		return false;
@@ -277,10 +317,14 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	frame->pml4 = curr->pml4;
+	list_push_back(&frame->child_pages, &page->cow_elem);
+
 	page->frame = frame;
 
 	if (!pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
+	{
 		return false;
+	}
 
 	bool succ = swap_in(page, frame->kva);
 	return succ;
@@ -300,6 +344,7 @@ void supplemental_page_table_init(struct supplemental_page_table *spt)
 /* Copy supplemental page table from src to dst */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src)
 {
+	struct thread *curr = thread_current();
 	struct hash_iterator i;
 	struct hash *parent_hash = &src->table;
 
@@ -317,23 +362,19 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 		}
 		else
 		{
-			vm_alloc_page(page_get_type(parent_page), parent_page->va, parent_page->writable);
+			struct page *child_page = (struct page *)malloc(sizeof(struct page));
+			memcpy(child_page, parent_page, sizeof(struct page));
 
-			vm_claim_page(parent_page->va);
+			if (!spt_insert_page(dst, child_page))
+				return false;
 
-			struct page *child_page = spt_find_page(dst, parent_page->va);
+			if (!pml4_set_page(curr->pml4, child_page->va, child_page->frame->kva, false))
+				return false;
 
-			if (page_get_type(child_page) == VM_FILE)
-			{
-				struct file_page *parent_anon = &parent_page->anon;
-				struct file_page *child_anon = &child_page->anon;
+			list_push_back(&child_page->frame->child_pages, &child_page->cow_elem);
+			child_page->frame->cow_cnt++;
 
-				child_anon->file = file_reopen(parent_anon->file);
-				child_anon->length = parent_anon->length;
-				child_anon->offset = parent_anon->offset;
-			}
-
-			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+			child_page->pml4 = curr->pml4;
 		}
 	}
 
