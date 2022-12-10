@@ -167,7 +167,18 @@ vm_evict_frame(void)
 	swap_out(victim->page);
 
 	struct page *page = victim->page;
+
 	page->frame = NULL;
+	if (victim->cow_cnt > 0)
+	{
+		struct list_elem *temp_elem = list_begin(&victim->child_pages);
+
+		for (; temp_elem != list_tail(&victim->child_pages); temp_elem = temp_elem->next)
+		{
+			struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
+			temp_page->frame = NULL;
+		}
+	}
 
 	pml4_clear_page(victim->pml4, page->va);
 
@@ -222,9 +233,14 @@ vm_handle_wp(struct page *page UNUSED)
 	struct thread *curr = thread_current();
 	struct frame *old_frame = page->frame;
 
+	/* unmap page-frame */
 	page->frame = NULL;
+	list_remove(&page->cow_elem);
+	if (old_frame->page == page)
+		old_frame->page = list_begin(&old_frame->child_pages);
 	pml4_clear_page(curr->pml4, page->va);
 
+	/* Set links */
 	struct frame *new_frame = vm_get_frame();
 
 	/* Set links */
@@ -276,12 +292,12 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (page == NULL)
 		return false;
 
+	if (!page->writable && write)
+		return false;
+
 	if (write && !not_present && page->frame->cow_cnt > 0)
 		if (vm_handle_wp(page))
 			return true;
-
-	if (!page->writable && write)
-		return false;
 
 	/* upload to pysical memory */
 	succ = vm_do_claim_page(page);
@@ -415,6 +431,28 @@ static unsigned spt_less(const struct hash_elem *a, const struct hash_elem *b)
 void hash_destructor(struct hash_elem *hash_elem, void *aux)
 {
 	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
+	struct frame *frame = page->frame;
+
+	if (frame)
+	{
+		if (frame->cow_cnt == 0)
+		{
+			if (clock_ptr == &frame->elem)
+				list_clock_next(&frame_table);
+			list_remove(&frame->elem);
+
+			palloc_free_page(frame->kva);
+			free(frame);
+		}
+		else
+		{
+			frame->cow_cnt--;
+			list_remove(&page->cow_elem);
+
+			if (frame->page == page)
+				frame->page = list_begin(&frame->child_pages);
+		}
+	}
 
 	vm_dealloc_page(page);
 }

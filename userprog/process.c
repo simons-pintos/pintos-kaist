@@ -489,7 +489,6 @@ process_cleanup(void)
 
 #ifdef VM
 	supplemental_page_table_kill(&curr->spt);
-	return;
 #endif
 
 	uint64_t *pml4;
