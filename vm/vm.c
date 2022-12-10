@@ -131,6 +131,8 @@ vm_evict_frame(void)
 {
 	struct frame *victim UNUSED = vm_get_victim();
 	/* TODO: swap out the victim and return the evicted frame. */
+	
+
 
 	return NULL;
 }
@@ -146,7 +148,7 @@ vm_get_frame(void)
 
 	frame->kva = palloc_get_page(PAL_USER);
 	if (frame->kva == NULL)
-		PANIC("TO DO");
+		frame = vm_evict_frame();
 
 	frame->page = NULL;
 

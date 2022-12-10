@@ -7,7 +7,7 @@ enum vm_type;
 
 struct anon_page // simons added
 {
-    int test;
+    int swap_slot_no;
 };
 
 void vm_anon_init(void);

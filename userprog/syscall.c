@@ -111,9 +111,7 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 		// to_write : 버퍼(= 페이지)에 대한 쓰기, 읽기 접근 
 		if (to_write == true && page->writable == false)
 			exit(-1);
-	}
-
-	
+	}	
 }
 
 
