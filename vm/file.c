@@ -153,7 +153,7 @@ void do_munmap(void *addr)
 		file_info = page->uninit.aux;   // ??? 이 코드를 제대로 모르겠음 (왜 aux가 file_info 인건지)
 		size_t ofs = file_info -> ofs;
 		
-		if ((pml4_is_dirty(curr->pml4, page->va)) && (file_info->page_read_bytes == PGSIZE)){
+		if ((pml4_is_dirty(curr->pml4, page->va))){
 
 			file_write_at(mmap_file->file, page->va, file_info->page_read_bytes, ofs);
 			pml4_set_dirty(curr->pml4, page->va, 0);
