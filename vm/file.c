@@ -16,10 +16,14 @@ static const struct page_operations file_ops = {
 	.type = VM_FILE,
 };
 
+/* Project 3 : Swapping in & out */
+
 
 /* The initializer of file vm */
 void vm_file_init(void)
 {
+
+
 }
 
 /* Initialize the file backed page */
@@ -27,7 +31,6 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	/* Set up the handler */
 	page->operations = &file_ops;
-
 	struct file_page *file_page = &page->file;
 }
 
@@ -35,14 +38,23 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	struct file_info *page_info = page->uninit.aux;
+	
+	file_read_at(page_info->file, page->frame->kva, page_info->page_read_bytes, page_info->ofs);
+	pml4_set_page(thread_current()->pml4, page->va, page->frame->kva, false);
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out(struct page *page)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	struct file_info *page_info = page->uninit.aux;
+
+	file_write_at(page_info->file, page->frame->kva, page_info->page_read_bytes, page_info->ofs);
+	pml4_clear_page(thread_current()->pml4, page->va);
+
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */

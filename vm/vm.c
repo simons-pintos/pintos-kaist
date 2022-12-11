@@ -157,7 +157,6 @@ vm_get_frame(void)
 
 	frame->kva = palloc_get_page(PAL_USER);
 	if (frame->kva == NULL){
-		// sema_down(frame->change);
 		frame = vm_evict_frame();
 	}
 
