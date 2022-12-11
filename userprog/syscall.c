@@ -111,9 +111,7 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 		// to_write : 버퍼(= 페이지)에 대한 쓰기, 읽기 접근 
 		if (to_write == true && page->writable == false)
 			exit(-1);
-	}
-
-	
+	}	
 }
 
 
@@ -536,7 +534,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 		return NULL;
 	if ((int)addr % PGSIZE != 0 || offset % PGSIZE != 0)
 		return NULL;
-	if (spt_find_page(&cur->spt, addr) == &addr)
+	if (spt_find_page(&cur->spt, addr))
 		return NULL;
 	if (file == NULL || file == STDIN || file == STDOUT)
 		return NULL;

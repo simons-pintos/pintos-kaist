@@ -133,6 +133,7 @@ page_fault(struct intr_frame *f)
 
 	fault_addr = (void *)rcr2();
 
+
 	/* Turn interrupts back on (they were only off so that we could
 	   be assured of reading CR2 before it changed). */
 	intr_enable();
@@ -145,7 +146,6 @@ page_fault(struct intr_frame *f)
 	/* For project 3 and later. */
 	if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
 		return;
-	// printf("========vm_try_hand_fault\n");
 #endif
 
 	/* Count page faults. */

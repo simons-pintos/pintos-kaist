@@ -58,6 +58,9 @@ struct page
 	/* mapped page */
 	struct list_elem mapped_elem;
 
+	/* For Project 3 : Swapping in & out */
+	size_t swap_slot_number; /* swap_slot number*/
+
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union
@@ -69,6 +72,8 @@ struct page
 		struct page_cache page_cache;
 #endif
 	};
+
+	
 };
 
 /* The representation of "frame" */
