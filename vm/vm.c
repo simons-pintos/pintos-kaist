@@ -75,6 +75,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 			// list_push_back(&new_list, &new_elem);
 			break;
 		}
+
 		
 		new_page->writable = writable;
 		/* TODO: Insert the page into the spt. */
@@ -83,6 +84,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	}
 
 err:
+
 	return false;
 }
 
@@ -176,7 +178,7 @@ vm_stack_growth(void *addr)
 {
 	uintptr_t stack_bottom = pg_round_down(addr);
 	vm_alloc_page(VM_ANON, stack_bottom, true);
-	thread_current()->user_rsp = addr;
+	// thread_current()->user_rsp = addr;
 }
 
 /* Handle the fault on write_protected page */
@@ -275,8 +277,6 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 	struct hash_iterator i;
 	struct hash *parent_hash = &src->table;
 
-	// hash_apply(parent_hash, hash_copy);
-
 	hash_first(&i, parent_hash);
 	while (hash_next(&i))
 	{
@@ -307,6 +307,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt)
 {
+
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 	struct list_elem *soon_die_elem = list_begin(&thread_current()->mmap_list);
@@ -316,6 +317,7 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt)
 			soon_die_elem = soon_die_elem->next;
 			munmap(soon_die_file->mapid);
 		}
+
 
 	hash_destroy(&spt->table, hash_destructor);
 }

@@ -705,7 +705,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	sema_init(&t->fork, 0);
 	sema_init(&t->exit, 0);
 
+
 	/* project 3 : Virtual Memory */
+
 	list_init(&t->mmap_list);
 }
 
