@@ -18,4 +18,5 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva);
 void *do_mmap(void *addr, size_t length, int writable,
 			  struct file *file, off_t offset);
 void do_munmap(void *va);
+// bool lazy_load_segment(struct page *page, void *aux);
 #endif

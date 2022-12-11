@@ -80,11 +80,41 @@ address의 유효성 검사
 3. 할당 받은 VM의 address인가?
 유효하지 않으면 thread 종료
 */
-void check_address(uint64_t addr)
+struct page *check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
-		exit(-1);
+	// if (is_kernel_vaddr(addr) || addr == NULL || spt_find_page(&thread_current()->spt, addr) == NULL)
+	// 	exit(-1);
+	if (is_kernel_vaddr(addr) || addr == NULL){
+		// printf("===[DEBUG] addr : %d\n", addr);
+		exit(-1);}
+
+	return spt_find_page(&thread_current()->spt, addr);
 }
+
+
+/* 현진 코드 */ 
+void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
+{
+	uintptr_t start_page = pg_round_down(buffer);
+	uintptr_t end_page = pg_round_down(buffer + size - 1);
+	if (buffer <= USER_STACK && buffer >= rsp)
+		return;
+	
+	for (; start_page <= end_page ; start_page += PGSIZE)
+	{
+		struct page *page = check_address(start_page);
+
+		if (page == NULL)
+			exit(-1);
+
+
+		// to_write : 버퍼(= 페이지)에 대한 쓰기, 읽기 접근 
+		if (to_write == true && page->writable == false)
+			exit(-1);
+	}	
+}
+
+
 
 /*
 The main system call interface
@@ -116,7 +146,6 @@ void syscall_handler(struct intr_frame *f)
 	// SYS_DUP2			/* Duplicate the file descriptor */
 
 	thread_current()->user_rsp = f->rsp;
-
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -179,7 +208,8 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		// check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -188,7 +218,8 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int fd
 		// argv[1]: const void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		// check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -215,6 +246,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
+
 
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
@@ -289,6 +321,7 @@ initial_size를 가진 file 생성
 */
 bool create(const char *file, unsigned initial_size)
 {
+	// printf("===[DEBUG] file : %s\n", file);
 	return filesys_create(file, initial_size);
 }
 
@@ -304,14 +337,12 @@ int open(const char *file)
 	sema_down(&wrt);
 	struct file *f = filesys_open(file);
 	sema_up(&wrt);
-
 	if (f == NULL)
 		return -1;
 
 	int fd = process_add_file(f);
 	if (fd == -1)
 		close(f);
-
 	return fd;
 }
 
@@ -444,22 +475,27 @@ void close(int fd)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return;
-
-	if (f == STDIN)
+	// printf("===[DEBUG] in Close function\n");
+	if (f == STDIN){
 		curr->stdin_cnt--;
-	else if (f == STDOUT)
-		curr->stdout_cnt--;
-	else
+		// printf("===[DEBUG] in Close function ifif\n");
+	}
+	else if (f == STDOUT){
+		curr->stdout_cnt--; 
+		// printf("===[DEBUG] in Close function else if\n");
+		}
+	else 
 	{
 		if (f->dup_cnt == 0)
 		{
 			curr->fd_idx = fd;
 			file_close(f);
 		}
-		else
+		else{
 			f->dup_cnt--;
+			
+			}
 	}
-
 	thread_current()->fdt[fd] = NULL;
 }
 
@@ -494,12 +530,30 @@ int dup2(int oldfd, int newfd)
 
 /**************** project 3: virtual memory *******************/
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
-{
+{	
 	struct file *file = process_get_file(fd);
+	struct thread *cur = thread_current();
+
+
+	if (length == 0 || addr == 0 || addr == NULL)
+		return NULL;
+	if ((int)addr % PGSIZE != 0 || offset % PGSIZE != 0)
+		return NULL;
+	if (spt_find_page(&cur->spt, addr))
+		return NULL;
 	if (file == NULL || file == STDIN || file == STDOUT)
 		return NULL;
 
-	if (length == 0 || filesize(fd) == 0)
+
+	/*for mmap-kernel validation*/
+	if (is_kernel_vaddr(addr))
+		return NULL;
+	if (addr > KERN_BASE + 10000000)
+		return NULL;
+	if (is_kernel_vaddr(addr + length))
+		return NULL;
+	if (addr + length == NULL)
+
 		return NULL;
 
 	if (is_kernel_vaddr(addr) || addr == NULL || pg_ofs(addr))

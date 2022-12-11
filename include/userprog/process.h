@@ -21,8 +21,24 @@ int process_wait(tid_t);
 void process_exit(void);
 void process_activate(struct thread *next);
 
-// #ifdef VM
+
+/********* project 3 ***********/
 bool lazy_load_segment(struct page *page, void *aux);
-// #endif
+
+
+struct file_info
+{
+	struct file *file;
+	off_t ofs;
+	uint32_t page_read_bytes;
+	uint32_t page_zero_bytes;
+
+    /* mmap */
+    // struct list mmap_list;
+    // struct list_elem mmap_elem;
+};
+
+
 
 #endif /* userprog/process.h */
+

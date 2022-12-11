@@ -54,8 +54,13 @@ struct page
 	/* spt 관련  */
 	struct hash_elem hash_elem;
 
-	/* mmap 관련 */
-	struct list_elem mmap_elem;
+
+	/* mapped page */
+	struct list_elem mapped_elem;
+
+	/* For Project 3 : Swapping in & out */
+	size_t swap_slot_number; /* swap_slot number*/
+
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -68,6 +73,8 @@ struct page
 		struct page_cache page_cache;
 #endif
 	};
+
+	
 };
 
 /* The representation of "frame" */
@@ -75,7 +82,10 @@ struct frame
 {
 	void *kva;
 	struct page *page;
+	struct list_elem frame_elem;
+	// struct semaphore change;
 };
+struct list frame_list;
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
@@ -137,5 +147,7 @@ bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
 
 void hash_print(struct hash_elem *hash_elem, void *aux);
+
+
 
 #endif /* VM_VM_H */

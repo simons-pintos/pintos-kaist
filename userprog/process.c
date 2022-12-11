@@ -342,6 +342,7 @@ error:
 void argument_stack(int argc, char **argv, struct intr_frame *_if)
 {
 	// argument를 역순으로 stack에 push
+	// printf("WHAT IS _if->rsp 11 : %p\n", _if->rsp); 
 	for (int i = argc - 1; i > -1; i--)
 	{
 		size_t len = strlen(argv[i]) + 1; // '\0'을 포함해야하므로 +1
@@ -373,6 +374,7 @@ void argument_stack(int argc, char **argv, struct intr_frame *_if)
 	// rdi(첫번째 인자 register)와 rsi(두번째 인자 register)에 argc와 argv 삽입
 	_if->R.rdi = argc;
 	_if->R.rsi = _if->rsp + 8;
+
 
 	thread_current()->user_rsp = _if->rsp;
 }
@@ -447,6 +449,7 @@ int process_wait(tid_t child_tid UNUSED)
 	// 위의 작업이 끝나기를 기다리는 자식 process를 wakeup
 	sema_up(&child->exit);
 
+	// printf("===[DEBUG] wait_status : %d\n", status);
 	return status;
 }
 
@@ -883,8 +886,17 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-bool lazy_load_segment(struct page *page, void *aux)
-{
+
+// struct file_info
+// {
+// 	struct file *file;
+// 	off_t ofs;
+// 	uint32_t page_read_bytes;
+// 	uint32_t page_zero_bytes;
+// };
+
+bool lazy_load_segment(struct page *page, void *aux){
+
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */

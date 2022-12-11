@@ -30,8 +30,8 @@ void fail (const char *, ...) PRINTF_FORMAT (1, 2) NO_RETURN;
         do                                      \
           {                                     \
             msg (__VA_ARGS__);                  \
-            if (!(SUCCESS))                     \
-              fail (__VA_ARGS__);               \
+            if (!(SUCCESS)){                     \
+              fail (__VA_ARGS__);    }          \
           }                                     \
         while (0)
 

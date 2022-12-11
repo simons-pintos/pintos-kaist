@@ -135,6 +135,8 @@ struct thread
 
 	/**************** project 3: virtual memory *******************/
 	uintptr_t user_rsp;
+	void *start_address;
+	struct list mmap_list;
 
 	struct list mmap_list;
 
@@ -151,6 +153,16 @@ struct thread
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
 };
+
+/*********** project 3 ***********/
+struct mmap_file {
+	int mapid;			
+	struct file *file;				/* 매핑하는 파일의 파일 오브젝트 */
+	struct list page_list; 	      /* mmap_file에 해당하는 모든 page들의 list */
+	struct list_elem elem;
+};
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
