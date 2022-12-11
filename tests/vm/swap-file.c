@@ -45,8 +45,6 @@ test_main (void)
     // printf("===[DEBUG] WHERE ARE YOU33?\n");
     /* Unmap and close opend file */ 
     munmap (map);
-    // printf("===[DEBUG] WHERE ARE YOU44?\n");
-
     close (handle);
 }
 

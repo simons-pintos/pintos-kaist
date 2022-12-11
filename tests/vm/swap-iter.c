@@ -45,13 +45,16 @@ test_main (void)
         if ((i & 0x1ff) == 0)
             msg ("check consistency in page %zu", i);
     }
+    // printf("WHAT IS PROBLEM MAN00\n");
 
     /* Check file map'd page again */
     if (memcmp (actual, large, strlen (large)))
         fail ("read of mmap'd file reported bad data");
 
     /* Unmap and close opend file */
+    // printf("WHAT IS PROBLEM MAN11\n");
     munmap (map);
+    // printf("WHAT IS PROBLEM MAN22\n");
     close (handle);
 }
 

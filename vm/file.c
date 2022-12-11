@@ -46,8 +46,9 @@ file_backed_swap_in(struct page *page, void *kva)
 
 	file_seek(page_info->file, page_info->ofs);
 
-	file_read(page_info->file, page->frame->kva, page_info->page_read_bytes);
-	memset(kva + page_read_bytes, 0, page_zero_bytes);
+	file_read_at(page_info->file, kva, page_read_bytes, page_info->ofs);
+	
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
@@ -57,8 +58,11 @@ file_backed_swap_out(struct page *page)
 	struct file_page *file_page = &page->file;
 	struct file_info *page_info = page->uninit.aux;
 
-	file_write_at(page_info->file, page->frame->kva, page_info->page_read_bytes, page_info->ofs);
+	if (file_write_at(page_info->file, page->frame->kva, page_info->page_read_bytes, page_info->ofs) != (int)page_info->page_read_bytes)
+		return false;
 	pml4_clear_page(thread_current()->pml4, page->va);
+
+	return true;
 
 }
 
