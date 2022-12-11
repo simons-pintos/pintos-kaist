@@ -120,7 +120,7 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 The main system call interface
 user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어줌
 */
-void syscall_handler(struct intr_frame *f UNUSED)
+void syscall_handler(struct intr_frame *f)
 {
 	/* Projects 2 and later. */
 	// SYS_HALT,		/* Halt the operating system. */
@@ -246,13 +246,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[2]: int writable
 		// argv[3]: int fd
 		// argv[4]: off_t offset
+
 		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 		break;
 
 	case SYS_MUNMAP:
 		// argv[0]: void *addr
-		check_address(f->R.rdi);
-
 		munmap(f->R.rdi);
 		break;
 
@@ -544,6 +543,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	if (file == NULL || file == STDIN || file == STDOUT)
 		return NULL;
 
+
 	/*for mmap-kernel validation*/
 	if (is_kernel_vaddr(addr))
 		return NULL;
@@ -553,6 +553,12 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 		return NULL;
 	if (addr + length == NULL)
 		return NULL;
+
+	if (is_kernel_vaddr(addr) || addr == NULL || pg_ofs(addr))
+		return NULL;
+
+	if (spt_find_page(&thread_current()->spt, addr) || offset % PGSIZE)
+		return false;
 
 	return do_mmap(addr, length, writable, file, offset);
 }

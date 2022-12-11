@@ -4,6 +4,7 @@
 #include "userprog/process.h"
 #include "threads/mmu.h"
 
+
 static bool file_backed_swap_in(struct page *page, void *kva);
 static bool file_backed_swap_out(struct page *page);
 static void file_backed_destroy(struct page *page);
@@ -29,9 +30,15 @@ void vm_file_init(void)
 /* Initialize the file backed page */
 bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
+	struct uninit_page *uninit = &page->uninit;
+
+	memset(uninit, 0, sizeof(struct uninit_page));
+
 	/* Set up the handler */
 	page->operations = &file_ops;
 	struct file_page *file_page = &page->file;
+
+	return true;
 }
 
 /* Swap in the page by read contents from the file. */
@@ -49,6 +56,7 @@ file_backed_swap_in(struct page *page, void *kva)
 	file_read_at(page_info->file, kva, page_read_bytes, page_info->ofs);
 	
 	return true;
+
 }
 
 /* Swap out the page by writeback contents to the file. */
@@ -70,13 +78,14 @@ file_backed_swap_out(struct page *page)
 static void
 file_backed_destroy(struct page *page)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
 }
 
 /* Do the mmap */
 void *
 do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset)
 {
+
 	ASSERT(pg_ofs(addr) == 0);
 	ASSERT(offset % PGSIZE == 0);
 	// file_seek(file, offset);
@@ -97,11 +106,11 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 	list_init(&mmap_file->page_list);
 	list_push_back(&curr->mmap_list, &mmap_file->elem);
 
-	
 	while (read_bytes > 0 || zero_bytes > 0)
 	{
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
 		/* Set up aux to pass information to the lazy_load_segment */
 		struct file_info *file_info = (struct file_info *)malloc(sizeof(struct file_info));
 
@@ -111,16 +120,17 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		file_info->page_zero_bytes = page_zero_bytes;
 
 
+
 		/* 해당 Virtual Memory에 struct page 할당해주며 load 되기 전까지는 uninit page */
 		/* page fault로 physical memory로 load 될 때 할당될 때 받은 page type으로 변환, */
 		/* lazy_load_sement 함수를 실행시켜서 upload함 */
 		if(!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_segment, file_info))
 			return NULL;
 
-		
 		struct page *page = spt_find_page(&curr->spt, upage);
 		if (page == NULL)
 			return false;
+
 
 		list_push_back(&mmap_file->page_list, &page->mapped_elem);
 		

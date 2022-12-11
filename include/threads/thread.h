@@ -138,6 +138,8 @@ struct thread
 	void *start_address;
 	struct list mmap_list;
 
+	struct list mmap_list;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
