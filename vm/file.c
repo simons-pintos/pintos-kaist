@@ -16,10 +16,14 @@ static const struct page_operations file_ops = {
 	.type = VM_FILE,
 };
 
+/* Project 3 : Swapping in & out */
+
 
 /* The initializer of file vm */
 void vm_file_init(void)
 {
+
+
 }
 
 /* Initialize the file backed page */
@@ -27,7 +31,6 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	/* Set up the handler */
 	page->operations = &file_ops;
-
 	struct file_page *file_page = &page->file;
 }
 
@@ -35,14 +38,32 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	struct file_info *page_info = page->uninit.aux;
+	
+	size_t page_read_bytes = page_info->page_read_bytes;
+	size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	file_seek(page_info->file, page_info->ofs);
+
+	file_read_at(page_info->file, kva, page_read_bytes, page_info->ofs);
+	
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out(struct page *page)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	struct file_info *page_info = page->uninit.aux;
+
+	if (file_write_at(page_info->file, page->frame->kva, page_info->page_read_bytes, page_info->ofs) != (int)page_info->page_read_bytes)
+		return false;
+	pml4_clear_page(thread_current()->pml4, page->va);
+
+	return true;
+
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -108,9 +129,8 @@ do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset
 		zero_bytes -= page_zero_bytes;  // 남은 zero_bytes 갱신
 		upage += PGSIZE; 		        // virtual address를 옮겨서 다음 page space를 가리키게 함
 		ofs += PGSIZE; 	                // 다음 page에 mapping 시킬 file 위치 갱신
-		
 	}
-
+	// printf("===[DEBUG] WHERE ARE U?\n");
 	return addr;
 }
 
@@ -142,9 +162,9 @@ void do_munmap(void *addr)
 		}
 	}
 
-	mmap_file->file = file_reopen(mmap_file->file);
-	if (mmap_file->file == NULL)
-		return NULL;
+	// mmap_file->file = file_reopen(mmap_file->file);
+	// if (mmap_file->file == NULL)
+	// 	return NULL;
 
 	/* page_list에서 page를 하나씩 꺼내어서 dirty일 시 파일에 쓰고 종료*/
 	for (elem = list_begin(&mmap_file->page_list); elem != list_end(&mmap_file->page_list); elem = list_next(elem)){
@@ -162,9 +182,9 @@ void do_munmap(void *addr)
 		// ofs =+ PGSIZE;
 		// munmap_addr =+ PGSIZE;
 		}
-		file_close(file_info->file);
+		// file_close(file_info->file);
 		list_remove(&mmap_file->elem);
-		free(mmap_file);
+		// free(mmap_file);
 
 		return;
 	}

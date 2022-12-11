@@ -475,22 +475,27 @@ void close(int fd)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 		return;
-
-	if (f == STDIN)
+	// printf("===[DEBUG] in Close function\n");
+	if (f == STDIN){
 		curr->stdin_cnt--;
-	else if (f == STDOUT)
-		curr->stdout_cnt--;
-	else
+		// printf("===[DEBUG] in Close function ifif\n");
+	}
+	else if (f == STDOUT){
+		curr->stdout_cnt--; 
+		// printf("===[DEBUG] in Close function else if\n");
+		}
+	else 
 	{
 		if (f->dup_cnt == 0)
 		{
 			curr->fd_idx = fd;
 			file_close(f);
 		}
-		else
+		else{
 			f->dup_cnt--;
+			
+			}
 	}
-
 	thread_current()->fdt[fd] = NULL;
 }
 

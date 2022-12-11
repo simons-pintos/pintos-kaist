@@ -24,10 +24,12 @@ test_main (void)
     CHECK ((handle = open ("large.txt")) > 1, "open \"large.txt\"");
     CHECK ((map = mmap (actual, sizeof(large), 0, handle, 0)) != MAP_FAILED, "mmap \"large.txt\"");
 
+    // printf("===[DEBUG] WHERE ARE YOU?\n");
     /* Check that data is correct. */
     if (memcmp (actual, large, strlen (large)))
         fail ("read of mmap'd file reported bad data");
 
+    // printf("===[DEBUG] WHERE ARE YOU22?\n");
     /* Verify that data is followed by zeros. */
     size_t len = strlen(large);
     size_t page_end;
@@ -40,6 +42,7 @@ test_main (void)
         }
     }
 
+    // printf("===[DEBUG] WHERE ARE YOU33?\n");
     /* Unmap and close opend file */ 
     munmap (map);
     close (handle);
