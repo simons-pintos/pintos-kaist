@@ -81,7 +81,10 @@ struct frame
 {
 	void *kva;
 	struct page *page;
+	struct list_elem frame_elem;
+	// struct semaphore change;
 };
+struct list frame_list;
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
@@ -134,5 +137,7 @@ bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
 
 void hash_print(struct hash_elem *hash_elem, void *aux);
+
+
 
 #endif /* VM_VM_H */
