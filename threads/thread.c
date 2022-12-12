@@ -456,7 +456,8 @@ void donate_priority(void)
 	int depth = 1;
 	while (depth < NESTED_DEPTH && temp_t->wait_on_lock != NULL)
 	{
-		temp_t = temp_t->wait_on_lock->holder;
+		if (temp_t->wait_on_lock->holder > 0x100)
+			temp_t = temp_t->wait_on_lock->holder;
 
 		if (temp_t->priority < thread_current()->priority)
 			temp_t->priority = thread_current()->priority;

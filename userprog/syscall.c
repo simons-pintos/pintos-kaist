@@ -103,6 +103,25 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 	}
 }
 
+// void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
+// {
+// 	uintptr_t start_page = pg_round_down(buffer);
+// 	uintptr_t end_page = pg_round_down(buffer + size - 1);
+
+// 	if (buffer <= USER_STACK && buffer >= rsp)
+// 		return;
+
+// 	for (uintptr_t i = buffer; i < buffer + size; i++)
+// 	{
+// 		struct page *page = check_address(i);
+// 		if (page == NULL)
+// 			exit(-1);
+
+// 		if (to_write == true && page->writable == false)
+// 			exit(-1);
+// 	}
+// }
+
 /*
 The main system call interface
 user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어줌
@@ -307,7 +326,11 @@ initial_size를 가진 file 생성
 */
 bool create(const char *file, unsigned initial_size)
 {
-	return filesys_create(file, initial_size);
+	lock_acquire(&file_lock);
+	bool succ = filesys_create(file, initial_size);
+	lock_release(&file_lock);
+
+	return succ;
 }
 
 /* 해당 file 삭제 */
