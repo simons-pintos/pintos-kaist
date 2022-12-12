@@ -15,6 +15,8 @@
 struct list frame_table;
 struct list_elem *clock_ptr;
 
+void vm_down_cow_cnt(struct frame *frame);
+
 void vm_init(void)
 {
 	vm_anon_init();
@@ -109,18 +111,30 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
-	struct thread *curr = thread_current();
-	if (pml4_get_page(curr->pml4, page->va))
-	{
-		pml4_clear_page(curr->pml4, page->va);
+	struct frame *frame = page->frame;
 
-		struct frame *frame = page->frame;
-		free(frame->kva);
-		list_remove(&frame->elem);
-		free(frame);
+	if (frame)
+	{
+		if (frame->cow_cnt == 0)
+		{
+			if (clock_ptr == &frame->elem)
+				list_clock_next(&frame_table);
+			list_remove(&frame->elem);
+
+			palloc_free_page(frame->kva);
+			free(frame);
+		}
+		else
+		{
+			list_remove(&page->cow_elem);
+			vm_down_cow_cnt(frame);
+
+			if (frame->page == page)
+				frame->page = list_begin(&frame->child_pages);
+		}
 	}
 
-	if (hash_delete(spt, &page->hash_elem))
+	if (hash_delete(&spt->table, &page->hash_elem))
 		vm_dealloc_page(page);
 
 	return;
@@ -168,19 +182,14 @@ vm_evict_frame(void)
 
 	struct page *page = victim->page;
 
-	page->frame = NULL;
-	if (victim->cow_cnt > 0)
+	struct list_elem *temp_elem = list_begin(&victim->child_pages);
+	for (; temp_elem != list_tail(&victim->child_pages); temp_elem = temp_elem->next)
 	{
-		struct list_elem *temp_elem = list_begin(&victim->child_pages);
+		struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
 
-		for (; temp_elem != list_tail(&victim->child_pages); temp_elem = temp_elem->next)
-		{
-			struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
-			temp_page->frame = NULL;
-		}
+		temp_page->frame = NULL;
+		pml4_clear_page(temp_page->pml4, temp_page->va);
 	}
-
-	pml4_clear_page(victim->pml4, page->va);
 
 	return victim;
 }
@@ -242,30 +251,21 @@ vm_handle_wp(struct page *page UNUSED)
 
 	/* Set links */
 	struct frame *new_frame = vm_get_frame();
-
-	/* Set links */
 	new_frame->page = page;
-	new_frame->pml4 = curr->pml4;
-	list_push_back(&new_frame->child_pages, &page->cow_elem);
-
 	page->frame = new_frame;
 
 	if (!pml4_set_page(curr->pml4, page->va, new_frame->kva, page->writable))
 		return false;
 
+	/* initialize struct frame */
+	new_frame->pml4 = curr->pml4;
+	list_push_back(&new_frame->child_pages, &page->cow_elem);
+
+	/* set pysical memory */
 	memcpy(new_frame->kva, old_frame->kva, PGSIZE);
 
-	old_frame->cow_cnt--;
-
-	if (old_frame->cow_cnt == 0)
-	{
-		struct list_elem *temp_elem = list_begin(&old_frame->child_pages);
-		struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
-
-		pml4_clear_page(temp_page->pml4, temp_page->va);
-		if (!pml4_set_page(temp_page->pml4, temp_page->va, old_frame->kva, temp_page->writable))
-			return false;
-	}
+	/* manage cow */
+	vm_down_cow_cnt(old_frame);
 
 	return true;
 }
@@ -273,6 +273,7 @@ vm_handle_wp(struct page *page UNUSED)
 /* Return true on success */
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
+
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	bool succ = false;
 
@@ -292,9 +293,16 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 	if (page == NULL)
 		return false;
 
+	/* check writable */
 	if (!page->writable && write)
 		return false;
 
+	/* check copy on write */
+	// if (page->frame)
+	// {
+	// 	printf("[DEBUG]page->va: %p\n", page->va);
+	// 	printf("[DEBUG]cow_cnt: %d\n", page->frame->cow_cnt);
+	// }
 	if (write && !not_present && page->frame->cow_cnt > 0)
 		if (vm_handle_wp(page))
 			return true;
@@ -387,7 +395,12 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct su
 			if (!pml4_set_page(curr->pml4, child_page->va, child_page->frame->kva, false))
 				return false;
 
+			// pml4_clear_page(parent_page->pml4, parent_page->va);
+			if (!pml4_set_page(parent_page->pml4, parent_page->va, parent_page->frame->kva, false))
+				return false;
+
 			list_push_back(&child_page->frame->child_pages, &child_page->cow_elem);
+
 			child_page->frame->cow_cnt++;
 
 			child_page->pml4 = curr->pml4;
@@ -446,8 +459,8 @@ void hash_destructor(struct hash_elem *hash_elem, void *aux)
 		}
 		else
 		{
-			frame->cow_cnt--;
 			list_remove(&page->cow_elem);
+			vm_down_cow_cnt(frame);
 
 			if (frame->page == page)
 				frame->page = list_begin(&frame->child_pages);
@@ -461,6 +474,19 @@ void hash_print(struct hash_elem *hash_elem, void *aux)
 {
 	struct page *page = hash_entry(hash_elem, struct page, hash_elem);
 
-	printf("[Debug]page->va: %p\n", page->va);
+	printf("[Debug][%s]page->va: %p\n", thread_name(), page->va);
 	// printf("[Debug]page->operations->type: %d\n", page->operations->type);
+}
+
+void vm_down_cow_cnt(struct frame *frame)
+{
+	frame->cow_cnt--;
+
+	if (frame->cow_cnt == 0)
+	{
+		struct list_elem *temp_elem = list_begin(&frame->child_pages);
+		struct page *temp_page = list_entry(temp_elem, struct page, cow_elem);
+
+		pml4_set_page(temp_page->pml4, temp_page->va, frame->kva, temp_page->writable);
+	}
 }

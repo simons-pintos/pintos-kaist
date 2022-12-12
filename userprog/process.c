@@ -263,11 +263,6 @@ __do_fork(void *aux)
 		goto error;
 #endif
 
-	/* TODO: Your code goes here.
-	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
-	 * TODO:       in include/filesys/file.h. Note that parent should not return
-	 * TODO:       from the fork() until this function successfully duplicates
-	 * TODO:       the resources of parent.*/
 	if (parent->fd_idx >= FDT_LIMIT)
 		goto error;
 
@@ -322,11 +317,11 @@ __do_fork(void *aux)
 
 	current->fd_idx = parent->fd_idx;
 
-	// fork에서 load가 다끝났으므로 부모 process를 다시 wakeup
-	sema_up(&current->fork);
-
 	// 만들어진 자식 process는 fork()에 대한 return 값을 0으로 받고 시작한다
 	if_.R.rax = 0;
+
+	// fork에서 load가 다끝났으므로 부모 process를 다시 wakeup
+	sema_up(&current->fork);
 
 	/* Finally, switch to the newly created process. */
 	if (succ)

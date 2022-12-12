@@ -182,9 +182,10 @@ void do_munmap(void *addr)
 	struct mmap_file *mmap_file = find_mmap_file(addr);
 	struct list_elem *temp_elem = list_begin(&mmap_file->page_list);
 
-	for (; temp_elem != list_tail(&mmap_file->page_list); temp_elem = temp_elem->next)
+	for (; temp_elem != list_tail(&mmap_file->page_list);)
 	{
 		struct page *page = list_entry(temp_elem, struct page, mmap_elem);
+		temp_elem = temp_elem->next;
 
 		if (pml4_get_page(curr->pml4, page->va) == NULL)
 			continue;
@@ -196,6 +197,7 @@ void do_munmap(void *addr)
 		}
 
 		pml4_clear_page(curr->pml4, page->va);
+		spt_remove_page(&thread_current()->spt, page);
 	}
 
 	file_close(mmap_file->file);
