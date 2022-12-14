@@ -193,6 +193,10 @@ fat_create_chain(cluster_t clst)
 
 	fat_put(temp_c, i);
 
+	// printf("[DEBUG]append %d after %d\n", i, temp_c);
+	// printf("[DEBUG]%d: %d\n", i, fat_get(i));
+	// printf("[DEBUG]%d: %d\n\n", temp_c, fat_get(temp_c));
+
 	return i;
 }
 
@@ -204,8 +208,13 @@ void fat_remove_chain(cluster_t clst, cluster_t pclst)
 		fat_put(pclst, EOChain);
 
 	cluster_t temp_c = clst;
-	for (; fat_get(temp_c) != EOChain; temp_c = fat_get(temp_c))
+	cluster_t next_c;
+	for (; fat_get(temp_c) != EOChain; temp_c = next_c)
+	{
+		next_c = fat_get(temp_c);
 		fat_put(temp_c, 0);
+	}
+
 	fat_put(temp_c, 0);
 }
 
