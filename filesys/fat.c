@@ -175,27 +175,27 @@ void fat_fs_init(void)
 cluster_t
 fat_create_chain(cluster_t clst)
 {
+	/* FAT에서 empty cluster 탐색 */
 	int i;
 	for (i = 2; i < fat_fs->fat_length && fat_get(i) > 0; i++)
 		;
 
+	/* empty cluster가 없으면 */
 	if (i >= fat_fs->fat_length)
 		return 0;
 
+	/* empty cluster에 새로운 cluster 생성 */
 	fat_put(i, EOChain);
 
+	/* 새로운 cluster chain일 때 */
 	if (clst == 0)
 		return i;
 
+	/* 기존 cluster chain의 마지막에 추가할 때 */
 	cluster_t temp_c;
 	for (temp_c = clst; fat_get(temp_c) != EOChain; temp_c = fat_get(temp_c))
 		;
-
 	fat_put(temp_c, i);
-
-	// printf("[DEBUG]append %d after %d\n", i, temp_c);
-	// printf("[DEBUG]%d: %d\n", i, fat_get(i));
-	// printf("[DEBUG]%d: %d\n\n", temp_c, fat_get(temp_c));
 
 	return i;
 }
@@ -204,9 +204,11 @@ fat_create_chain(cluster_t clst)
  * If PCLST is 0, assume CLST as the start of the chain. */
 void fat_remove_chain(cluster_t clst, cluster_t pclst)
 {
+	/* pcluster가 입력됬으면 pcluster를 chain으로 끝으로 만듬 */
 	if (pclst)
 		fat_put(pclst, EOChain);
 
+	/* clst부터 순회하면서 FAT에서 할당 해제 */
 	cluster_t temp_c = clst;
 	cluster_t next_c;
 	for (; fat_get(temp_c) != EOChain; temp_c = next_c)

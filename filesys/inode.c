@@ -85,15 +85,10 @@ bool inode_create(disk_sector_t sector, off_t length)
 	cluster_t start_clst;
 	bool success = false;
 
-	// printf("[DEBUG][inode_create]sector: %d\n", sector);
-	// printf("[DEBUG][inode_create]length: %d\n\n", length);
-
 	ASSERT(length >= 0);
-
-	/* If this assertion fails, the inode structure is not exactly
-	 * one sector in size, and you should fix that. */
 	ASSERT(sizeof *disk_inode == DISK_SECTOR_SIZE);
 
+	/* create disk_node and initialize*/
 	disk_inode = calloc(1, sizeof *disk_inode);
 	if (disk_inode != NULL)
 	{
@@ -101,13 +96,13 @@ bool inode_create(disk_sector_t sector, off_t length)
 		disk_inode->length = length;
 		disk_inode->magic = INODE_MAGIC;
 
+		/* data cluster allocation */
 		if (start_clst = fat_create_chain(0))
 		{
 			disk_inode->start = cluster_to_sector(start_clst);
-			disk_write(filesys_disk, sector, disk_inode);
 
-			// printf("[DEBUG][inode_create]disk_inode->start: %d\n", disk_inode->start);
-			// printf("[DEBUG][inode_create]sectors: %d\n\n", sectors);
+			/* write disk_inode on disk */
+			disk_write(filesys_disk, sector, disk_inode);
 
 			if (sectors > 0)
 			{
@@ -116,6 +111,7 @@ bool inode_create(disk_sector_t sector, off_t length)
 				disk_sector_t w_sector;
 				size_t i;
 
+				/* make cluster chain based length and initialize zero*/
 				while (sectors > 0)
 				{
 					w_sector = cluster_to_sector(target);
@@ -203,9 +199,11 @@ void inode_close(struct inode *inode)
 		/* Deallocate blocks if removed. */
 		if (inode->removed)
 		{
+			/* remove disk_inode */
 			cluster_t clst = sector_to_cluster(inode->sector);
 			fat_remove_chain(clst, 0);
 
+			/* remove file data */
 			clst = sector_to_cluster(inode->data.start);
 			fat_remove_chain(clst, 0);
 		}
