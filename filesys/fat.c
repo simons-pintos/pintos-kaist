@@ -228,3 +228,14 @@ cluster_to_sector(cluster_t clst)
 {
 	return clst + fat_fs->data_start;
 }
+
+cluster_t
+sector_to_cluster(disk_sector_t sector)
+{
+	cluster_t clst = sector - fat_fs->data_start;
+
+	if (clst < 2)
+		return 0;
+
+	return clst;
+}

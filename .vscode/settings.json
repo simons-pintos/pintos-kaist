@@ -33,6 +33,8 @@
         "anon.h": "c",
         "main.h": "c",
         "disk.h": "c",
-        "bitmap.h": "c"
+        "bitmap.h": "c",
+        "off_t.h": "c",
+        "directory.h": "c"
     }
 }
