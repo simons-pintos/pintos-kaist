@@ -176,8 +176,11 @@ cluster_t
 fat_create_chain(cluster_t clst)
 {
 	int i;
-	for (i = 2; i < fat_fs->fat_length || fat_get(i) > 0; i++)
+	for (i = 2; i < fat_fs->fat_length && fat_get(i) > 0; i++)
 		;
+
+	if (i >= fat_fs->fat_length)
+		return 0;
 
 	fat_put(i, EOChain);
 
