@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/loader.h"
@@ -102,25 +103,6 @@ void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
 			exit(-1);
 	}
 }
-
-// void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
-// {
-// 	uintptr_t start_page = pg_round_down(buffer);
-// 	uintptr_t end_page = pg_round_down(buffer + size - 1);
-
-// 	if (buffer <= USER_STACK && buffer >= rsp)
-// 		return;
-
-// 	for (uintptr_t i = buffer; i < buffer + size; i++)
-// 	{
-// 		struct page *page = check_address(i);
-// 		if (page == NULL)
-// 			exit(-1);
-
-// 		if (to_write == true && page->writable == false)
-// 			exit(-1);
-// 	}
-// }
 
 /*
 The main system call interface
