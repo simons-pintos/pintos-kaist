@@ -8,6 +8,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "devices/disk.h"
+#include "threads/thread.h"
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
@@ -31,13 +32,14 @@ void filesys_init(bool format)
 		do_format();
 
 	fat_open();
+	thread_current()->cwd = dir_open_root(); // 현재 thread의 cwd를 root로 설정
 #else
 	/* Original FS */
 	free_map_init();
 
 	if (format)
 		do_format();
-
+	
 	free_map_open();
 #endif
 }
@@ -68,7 +70,7 @@ bool filesys_create(const char *name, off_t initial_size)
 	struct dir *dir = dir_open_root();
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size) && dir_add(dir, name, inode_sector));
+	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, name, inode_sector));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
@@ -133,3 +135,33 @@ do_format(void)
 
 	printf("done.\n");
 }
+
+struct dir* parse_path (char *path_name, char *file_name){
+	struct dir *dir = dir_open_root();
+	char *token, *save_ptr;
+	char *path = malloc(strlen(path_name) + 1);
+	strlcpy(path, path_name, strlen(path_name) + 1);
+
+	if(path[0] == '/'){
+		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
+	}
+	else{
+		dir = dir_reopen(thread_current()->cwd);
+	}
+
+	for(token = strtok_r(path, "/", &save_ptr); token != NULL; token = strtok_r(NULL, "/", &save_ptr)){
+		struct inode *inode = NULL;
+		if(!dir_lookup(dir, token, &inode)){
+			dir_close(dir);
+			return NULL;
+		}
+	dir_close(dir);
+	dir = dir_open(inode);
+	}
+
+
+	strlcpy(file_name, token, strlen(token) + 1);
+	free(path);
+	return dir;
+}
+

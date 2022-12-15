@@ -472,6 +472,8 @@ void process_exit(void)
 	// wait을 하고 있는 부모 process를 wakeup
 	sema_up(&thread_current()->wait);
 
+	dir_close(curr->cwd);
+
 	// 부모 process가 삭제 작업을 마치기 전까지 sleep
 	sema_down(&thread_current()->exit);
 }
