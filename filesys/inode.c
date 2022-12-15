@@ -51,6 +51,8 @@ byte_to_sector(const struct inode *inode, off_t pos)
 
 	cluster_t target = sector_to_cluster(inode->data.start);
 
+	/* file length와 관계없이 pos에 크기에 따라 계속 진행
+	   file length보다 pos가 크면 새로운 cluster를 할당해가면서 진행 */
 	while (pos >= DISK_SECTOR_SIZE)
 	{
 		if (fat_get(target) == EOChain)
@@ -208,6 +210,9 @@ void inode_close(struct inode *inode)
 			fat_remove_chain(clst, 0);
 		}
 
+		/* file을 닫을 때 disk_inode의 변경사항을 disk에 write */
+		disk_write(filesys_disk, inode->sector, &inode->data);
+
 		free(inode);
 	}
 }
@@ -284,12 +289,12 @@ off_t inode_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
  * less than SIZE if end of file is reached or an error occurs.
  * (Normally a write at end of file would extend the inode, but
  * growth is not yet implemented.) */
-off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size,
-					 off_t offset)
+off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size, off_t offset)
 {
 	const uint8_t *buffer = buffer_;
 	off_t bytes_written = 0;
 	uint8_t *bounce = NULL;
+	off_t origin_offset = offset;
 
 	if (inode->deny_write_cnt)
 		return 0;
@@ -301,9 +306,9 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size,
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
 
 		/* Bytes left in inode, bytes left in sector, lesser of the two. */
-		off_t inode_left = inode_length(inode) - offset;
+		/* file growth에 의해 length가 길어질 수 있기 때문에 length에 의한 제한을 없앰 */
 		int sector_left = DISK_SECTOR_SIZE - sector_ofs;
-		int min_left = inode_left < sector_left ? inode_left : sector_left;
+		int min_left = sector_left;
 
 		/* Number of bytes to actually write into this sector. */
 		int chunk_size = size < min_left ? size : min_left;
@@ -341,7 +346,12 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size,
 		offset += chunk_size;
 		bytes_written += chunk_size;
 	}
+
 	free(bounce);
+
+	/* file growth 됬을 때 inode의 length 갱신 */
+	if (inode_length(inode) < origin_offset + bytes_written)
+		inode->data.length = origin_offset + bytes_written;
 
 	return bytes_written;
 }
