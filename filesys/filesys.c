@@ -68,7 +68,7 @@ bool filesys_create(const char *name, off_t initial_size)
 	struct dir *dir = dir_open_root();
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size) && dir_add(dir, name, inode_sector));
+	bool success = (dir != NULL && inode_create(inode_sector, initial_size, INODE_FILE) && dir_add(dir, name, inode_sector));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 

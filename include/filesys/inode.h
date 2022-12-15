@@ -5,10 +5,13 @@
 #include "filesys/off_t.h"
 #include "devices/disk.h"
 
+#define INODE_FILE 0
+#define INODE_DIR 1
+
 struct bitmap;
 
 void inode_init(void);
-bool inode_create(disk_sector_t, off_t);
+bool inode_create(disk_sector_t, off_t, uint32_t is_dir);
 struct inode *inode_open(disk_sector_t);
 struct inode *inode_reopen(struct inode *);
 disk_sector_t inode_get_inumber(const struct inode *);

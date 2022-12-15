@@ -81,7 +81,7 @@ void inode_init(void)
  * disk.
  * Returns true if successful.
  * Returns false if memory or disk allocation fails. */
-bool inode_create(disk_sector_t sector, off_t length)
+bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 {
 	struct inode_disk *disk_inode = NULL;
 	cluster_t start_clst;
