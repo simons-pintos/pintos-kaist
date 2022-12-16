@@ -472,6 +472,8 @@ void process_exit(void)
 	// wait을 하고 있는 부모 process를 wakeup
 	sema_up(&thread_current()->wait);
 
+	dir_close(curr->cwd);
+
 	// 부모 process가 삭제 작업을 마치기 전까지 sleep
 	sema_down(&thread_current()->exit);
 }
@@ -623,16 +625,13 @@ load(const char *file_name, struct intr_frame *if_)
 	// 실행하려고 open한 file을 write하지 못하게 한다
 	file_deny_write(file);
 
-	lock_acquire(&file_lock);
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
 		|| ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Phdr) || ehdr.e_phnum > 1024)
 	{
-		lock_release(&file_lock);
 		printf("load: %s: error loading executable\n", argv[0]);
 		goto done;
 	}
-	lock_release(&file_lock);
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -643,14 +642,9 @@ load(const char *file_name, struct intr_frame *if_)
 		if (file_ofs < 0 || file_ofs > file_length(file))
 			goto done;
 
-		lock_acquire(&file_lock);
 		file_seek(file, file_ofs);
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
-		{
-			lock_release(&file_lock);
 			goto done;
-		}
-		lock_release(&file_lock);
 
 		file_ofs += sizeof phdr;
 

@@ -13,6 +13,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "vm/vm.h"
+#include "filesys/inode.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -52,6 +53,7 @@ void close(int fd);
 
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
+bool isdir(int fd);
 
 int dup2(int oldfd, int newfd);
 
@@ -132,6 +134,15 @@ void syscall_handler(struct intr_frame *f)
 
 	/* Extra for Project 2 */
 	// SYS_DUP2			/* Duplicate the file descriptor */
+
+	/* Project 4 only. */
+	//SYS_CHDIR         /* Change the current directory. */
+	//SYS_MKDIR         /* Create a directory. */
+	//SYS_READDIR       /* Reads a directory entry. */
+	//SYS_ISDIR         /* Tests if a fd represents a directory. */
+	//SYS_INUMBER       /* Returns the inode number for a fd. */
+	//SYS_SYMLINK       /* Returns the inode number for a fd. */
+
 
 	thread_current()->user_rsp = f->rsp;
 
@@ -247,6 +258,11 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: int oldfd
 		// argv[1]: int newfd
 		f->R.rax = dup2(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_ISDIR:
+		// argv[0]: int fd
+		f->R.rax = isdir(f->R.rdi);
 		break;
 	}
 }
@@ -528,4 +544,12 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 void munmap(void *addr)
 {
 	do_munmap(addr);
+}
+
+bool isdir (int fd) {
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	return inode_is_dir(f->inode);
 }
