@@ -16,9 +16,10 @@
 struct inode_disk
 {
 	disk_sector_t start;
-	off_t length;		  /* File size in bytes. */
+	off_t length; /* File size in bytes. */
+	uint32_t is_dir;
 	unsigned magic;		  /* Magic number. */
-	uint32_t unused[125]; /* Not used. */
+	uint32_t unused[124]; /* Not used. */
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -96,6 +97,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 	{
 		size_t sectors = bytes_to_sectors(length);
 		disk_inode->length = length;
+		disk_inode->is_dir = is_dir;
 		disk_inode->magic = INODE_MAGIC;
 
 		/* data cluster allocation */
@@ -243,6 +245,7 @@ off_t inode_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
 	{
 		/* Disk sector to read, starting byte offset within sector. */
 		disk_sector_t sector_idx = byte_to_sector(inode, offset);
+
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
 
 		/* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -270,6 +273,8 @@ off_t inode_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
 				if (bounce == NULL)
 					break;
 			}
+
+			// printf("[DEBUG][inode_read_at]sector_idx: %d\n", sector_idx);
 			disk_read(filesys_disk, sector_idx, bounce);
 			memcpy(buffer + bytes_read, bounce + sector_ofs, chunk_size);
 		}
@@ -279,6 +284,7 @@ off_t inode_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
 		offset += chunk_size;
 		bytes_read += chunk_size;
 	}
+
 	free(bounce);
 
 	return bytes_read;
@@ -378,4 +384,9 @@ void inode_allow_write(struct inode *inode)
 off_t inode_length(const struct inode *inode)
 {
 	return inode->data.length;
+}
+
+uint32_t inode_is_dir(const struct inode *inode)
+{
+	return inode->data.is_dir;
 }

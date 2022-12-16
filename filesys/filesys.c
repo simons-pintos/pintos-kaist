@@ -2,13 +2,16 @@
 #include <debug.h>
 #include <stdio.h>
 #include <string.h>
+#include "threads/thread.h"
 #include "filesys/file.h"
 #include "filesys/free-map.h"
 #include "filesys/fat.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "filesys/fsutil.h"
 #include "devices/disk.h"
 
+#define EFILESYS
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
 
@@ -31,6 +34,8 @@ void filesys_init(bool format)
 		do_format();
 
 	fat_open();
+
+	thread_current()->curr_dir = dir_open_root();
 #else
 	/* Original FS */
 	free_map_init();
@@ -132,4 +137,90 @@ do_format(void)
 #endif
 
 	printf("done.\n");
+}
+
+struct dir *parse_path(char *path_name, char *file_name)
+{
+	struct thread *curr;
+	struct dir *dir;
+
+	char *path = (char *)malloc(strlen(path_name) + 1);
+	strlcpy(path, path_name, strlen(path_name) + 1);
+
+	if (path == NULL || file_name == NULL)
+		return NULL;
+
+	if (strlen(path) == 0)
+		return NULL;
+
+	if (path[0] == '/')
+		dir = dir_open_root();
+	else
+		dir = dir_reopen(curr->curr_dir);
+
+	char *token, *next_token, *save_ptr;
+
+	token = strtok_r(path, "/", &save_ptr);
+	next_token = strtok_r(NULL, "/", &save_ptr);
+
+	struct inode *inode;
+	while (token != NULL && next_token != NULL)
+	{
+		if (!dir_lookup(dir, token, &inode))
+			goto fail;
+
+		if (inode_is_dir(inode) == INODE_FILE)
+			goto fail;
+
+		dir_close(dir);
+
+		dir = dir_open(inode);
+
+		token = next_token;
+		next_token = strtok_r(NULL, "/", &save_ptr);
+	}
+
+	strlcpy(file_name, token, strlen(token) + 1);
+
+	return dir;
+
+fail:
+	dir_close(dir);
+	if (inode)
+		inode_close(inode);
+
+	return NULL;
+}
+
+bool filesys_create_dir(const char *name)
+{
+	bool success;
+
+	char *file_name = (char *)malloc(strlen(name) + 1);
+	struct dir *dir = parse_path(name, file_name);
+	if (dir == NULL)
+		return false;
+
+	cluster_t inode_cluster = fat_create_chain(0);
+	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
+
+	struct inode *sub_dir_inode;
+	struct dir *sub_dir = NULL;
+
+	bool succ_create = dir_create(inode_sector, 16);
+	bool succ_add = dir_add(dir, file_name, inode_sector);
+	bool succ_lookup = dir_lookup(dir, file_name, &sub_dir_inode);
+	bool succ_create_curr_dir = dir_add(sub_dir = dir_open(sub_dir_inode), ".", inode_sector);
+	bool succ_create_prev_dir = dir_add(sub_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+
+	success = (dir != NULL && succ_create && succ_add && succ_lookup && succ_create_curr_dir && succ_create_prev_dir);
+	if (!success && inode_cluster != 0)
+		fat_remove_chain(inode_cluster, 0);
+
+	dir_close(sub_dir);
+	dir_close(dir);
+
+	free(file_name);
+
+	return success;
 }

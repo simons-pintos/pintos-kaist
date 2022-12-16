@@ -286,6 +286,9 @@ tid_t thread_create(const char *name, int priority,
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 
+	if (thread_current()->curr_dir)
+		t->curr_dir = dir_reopen(thread_current()->curr_dir);
+
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t)kernel_thread;
@@ -708,6 +711,9 @@ init_thread(struct thread *t, const char *name, int priority)
 
 	/* project 3: virtual memory */
 	list_init(&t->mmap_list);
+
+	/* project 4: filesystem */
+	t->curr_dir = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

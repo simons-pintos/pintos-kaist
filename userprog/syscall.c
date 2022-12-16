@@ -12,6 +12,7 @@
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "filesys/inode.h"
 #include "vm/vm.h"
 
 void syscall_entry(void);
@@ -586,18 +587,76 @@ void munmap(void *addr)
 	do_munmap(addr);
 }
 
-bool chdir(const char *dir)
+bool chdir(const char *name)
 {
 	// Changes the current working directory of the process to dir, which may be relative or absolute.
 	// Returns true if successful, false on failure.
+
+	struct thread *curr = thread_current();
+
+	char *copy_name = (char *)malloc(strlen(name) + 1);
+	if (copy_name == NULL)
+		return false;
+
+	strlcpy(copy_name, name, strlen(name) + 1);
+
+	if (strlen(copy_name) == 0)
+		return false;
+
+	struct dir *dir;
+
+	if (copy_name[0] == '/')
+		dir = dir_open_root();
+	else
+		dir = dir_reopen(curr->curr_dir);
+
+	char *token, *save_ptr;
+	token = strtok_r(copy_name, "/", &save_ptr);
+
+	struct inode *inode = NULL;
+	while (token != NULL)
+	{
+		if (!dir_lookup(dir, token, &inode))
+			goto fail;
+
+		if (!inode_is_dir(inode))
+			goto fail;
+
+		dir_close(dir);
+		dir = dir_open(inode);
+
+		token = strtok_r(NULL, "/", &save_ptr);
+	}
+
+	dir_close(curr->curr_dir);
+	curr->curr_dir = dir;
+	free(copy_name);
+
+	return true;
+
+fail:
+	dir_close(dir);
+	if (inode)
+		inode_close(inode);
+
+	return false;
 }
 
 bool mkdir(const char *dir)
 {
-	/* Creates the directory named dir, which may be relative or absolute.
-	   Returns true if successful, false on failure.
-	   Fails if dir already exists or if any directory name in dir, besides the last, does not already exist.
-	   That is, mkdir("/a/b/c") succeeds only if / a / b already exists and / a / b / c does not . */
+	char *copy_dir = (char *)malloc(strlen(dir) + 1);
+	if (copy_dir == NULL)
+		return false;
+
+	strlcpy(copy_dir, dir, strlen(dir) + 1);
+
+	lock_acquire(&file_lock);
+	bool succ = filesys_create_dir(copy_dir);
+	lock_release(&file_lock);
+
+	free(copy_dir);
+
+	return succ;
 }
 
 bool readdir(int fd, char *name)
@@ -617,6 +676,11 @@ bool readdir(int fd, char *name)
 bool isdir(int fd)
 {
 	// Returns true if fd represents a directory, false if it represents an ordinary file.
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	return inode_is_dir(f->inode);
 }
 
 int inumber(int fd)
@@ -628,4 +692,4 @@ int inumber(int fd)
 	   In Pintos, the sector number of the inode is suitable for use as an inode number. */
 }
 
-// int symlink(const char *target, const char *linkpath);
+int symlink(const char *target, const char *linkpath) {}

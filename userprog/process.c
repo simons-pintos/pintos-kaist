@@ -467,6 +467,8 @@ void process_exit(void)
 	// palloc으로 memory를 할당 받는 fdt를 free한다
 	palloc_free_page(curr->fdt);
 
+	dir_close(curr->curr_dir);
+
 	process_cleanup();
 
 	// wait을 하고 있는 부모 process를 wakeup

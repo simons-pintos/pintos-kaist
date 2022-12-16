@@ -90,8 +90,7 @@ dir_get_inode(struct dir *dir)
  * directory entry if OFSP is non-null.
  * otherwise, returns false and ignores EP and OFSP. */
 static bool
-lookup(const struct dir *dir, const char *name,
-	   struct dir_entry *ep, off_t *ofsp)
+lookup(const struct dir *dir, const char *name, struct dir_entry *ep, off_t *ofsp)
 {
 	struct dir_entry e;
 	size_t ofs;
@@ -99,8 +98,8 @@ lookup(const struct dir *dir, const char *name,
 	ASSERT(dir != NULL);
 	ASSERT(name != NULL);
 
-	for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
-		 ofs += sizeof e)
+	for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
+	{
 		if (e.in_use && !strcmp(name, e.name))
 		{
 			if (ep != NULL)
@@ -109,6 +108,8 @@ lookup(const struct dir *dir, const char *name,
 				*ofsp = ofs;
 			return true;
 		}
+	}
+
 	return false;
 }
 
@@ -116,8 +117,7 @@ lookup(const struct dir *dir, const char *name,
  * and returns true if one exists, false otherwise.
  * On success, sets *INODE to an inode for the file, otherwise to
  * a null pointer.  The caller must close *INODE. */
-bool dir_lookup(const struct dir *dir, const char *name,
-				struct inode **inode)
+bool dir_lookup(const struct dir *dir, const char *name, struct inode **inode)
 {
 	struct dir_entry e;
 
@@ -140,6 +140,10 @@ bool dir_lookup(const struct dir *dir, const char *name,
  * error occurs. */
 bool dir_add(struct dir *dir, const char *name, disk_sector_t inode_sector)
 {
+	// printf("[DEBUG][dir_add]dir: %p\n", dir);
+	// printf("[DEBUG][dir_add]name: %s\n", name);
+	// printf("[DEBUG][dir_add]inode_sector: %d\n", inode_sector);
+
 	struct dir_entry e;
 	off_t ofs;
 	bool success = false;
