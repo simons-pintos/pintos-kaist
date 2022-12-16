@@ -18,7 +18,7 @@ struct inode_disk
 	disk_sector_t start;
 	off_t length;		  /* File size in bytes. */
 	unsigned magic;		  /* Magic number. */
-	uint32_t unused[125]; /* Not used. */
+	uint32_t unused[124]; /* Not used. */
 	uint32_t is_dir;	  /* 0: file, 1: directory */	
 };
 
@@ -106,8 +106,6 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 		if (start_clst = fat_create_chain(0))
 		{
 			disk_inode->start = cluster_to_sector(start_clst);
-			printf("=== start_clst is...%d ,sector is... %d \n", disk_inode->start, sector);
-			printf("=== sectors is... %d , length is....%d \n", sectors, length);
 			/* write disk_inode on disk */
 			disk_write(filesys_disk, sector, disk_inode);
 
@@ -120,7 +118,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 
 				/* make cluster chain based length and initialize zero*/
 				while (sectors > 0)
-				{	printf("==hi\n");
+				{
 					w_sector = cluster_to_sector(target);
 					disk_write(filesys_disk, w_sector, zeros);
 

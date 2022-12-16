@@ -62,15 +62,23 @@ void filesys_done(void)
  * or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size)
 {
+	printf("=== 입력값: %s \n", name);
 	/* struct disk_inode를 저장할 새로운 cluster 할당 */
 	cluster_t inode_cluster = fat_create_chain(0);
 	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
+	char *file_name;
 
 	/* Root Directory open */
-	struct dir *dir = dir_open_root();
+	struct dir *dir_path = parse_path (name, file_name);
+	if (dir_path == NULL)
+		return false;
+
+	printf("===파싱이후: %s 와 %s \n", name, file_name);
+	struct dir *dir = dir_reopen(dir_path);
+	// struct dir *dir = dir_open_root();
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, name, inode_sector));
+	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, file_name, inode_sector));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
@@ -87,11 +95,18 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
-	struct dir *dir = dir_open_root();
+	printf("=== (filesys_open)입력값: %s \n", name);
+	char *file_name;
+	struct dir *dir_path = parse_path (name, file_name);
+	if (dir_path == NULL)
+		return NULL;
+	struct dir *dir = dir_reopen(dir_path);
+	// struct dir *dir = dir_open_root();
+
 	struct inode *inode = NULL;
 
 	if (dir != NULL)
-		dir_lookup(dir, name, &inode);
+		dir_lookup(dir, file_name, &inode);
 	dir_close(dir);
 
 	return file_open(inode);
@@ -159,9 +174,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 	dir = dir_open(inode);
 	}
 
-
 	strlcpy(file_name, token, strlen(token) + 1);
 	free(path);
 	return dir;
 }
-
