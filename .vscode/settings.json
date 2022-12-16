@@ -36,6 +36,7 @@
         "bitmap.h": "c",
         "off_t.h": "c",
         "directory.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "locale_t.h": "c"
     }
 }

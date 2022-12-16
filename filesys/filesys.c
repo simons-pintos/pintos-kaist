@@ -69,6 +69,8 @@ bool filesys_create(const char *name, off_t initial_size)
 	char file_name[NAME_MAX + 1];
 
 	char *copy_name = (char *)malloc(strlen(name) + 1);
+	if (copy_name == NULL)
+		return false;
 	strlcpy(copy_name, name, strlen(name) + 1);
 
 	/* struct disk_inode를 저장할 새로운 cluster 할당 */
@@ -101,6 +103,8 @@ filesys_open(const char *name)
 	char file_name[NAME_MAX + 1];
 
 	char *copy_name = (char *)malloc(strlen(name) + 1);
+	if (copy_name == NULL)
+		return false;
 	strlcpy(copy_name, name, strlen(name) + 1);
 
 	struct dir *dir = parse_path(copy_name, file_name);
@@ -108,6 +112,7 @@ filesys_open(const char *name)
 
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
+
 	dir_close(dir);
 	free(copy_name);
 
@@ -120,8 +125,17 @@ filesys_open(const char *name)
  * or if an internal memory allocation fails. */
 bool filesys_remove(const char *name)
 {
-	struct dir *dir = dir_open_root();
-	bool success = dir != NULL && dir_remove(dir, name);
+	struct thread *curr = thread_current();
+	char file_name[NAME_MAX + 1];
+
+	char *copy_name = (char *)malloc(strlen(name) + 1);
+	if (copy_name == NULL)
+		return false;
+	strlcpy(copy_name, name, strlen(name) + 1);
+
+	struct dir *dir = parse_path(copy_name, file_name);
+
+	bool success = dir != NULL && dir_remove(dir, file_name);
 	dir_close(dir);
 
 	return success;
@@ -147,6 +161,7 @@ do_format(void)
 	free_map_create();
 	if (!dir_create(ROOT_DIR_SECTOR, 16))
 		PANIC("root directory creation failed");
+
 	free_map_close();
 #endif
 
@@ -155,6 +170,8 @@ do_format(void)
 
 struct dir *parse_path(char *path_name, char *file_name)
 {
+	// printf("[DEBUG][parse_path]path_name: %s\n", path_name);
+
 	struct thread *curr = thread_current();
 	struct dir *dir;
 
@@ -194,7 +211,10 @@ struct dir *parse_path(char *path_name, char *file_name)
 		next_token = strtok_r(NULL, "/", &save_ptr);
 	}
 
-	strlcpy(file_name, token, strlen(token) + 1);
+	if (token == NULL)
+		strlcpy(file_name, ".", 2);
+	else
+		strlcpy(file_name, token, strlen(token) + 1);
 
 	return dir;
 

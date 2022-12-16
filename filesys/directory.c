@@ -35,6 +35,9 @@ bool dir_create(disk_sector_t sector, size_t entry_cnt)
 struct dir *
 dir_open(struct inode *inode)
 {
+	if (inode_is_removed(inode) == true)
+		return NULL;
+
 	struct dir *dir = calloc(1, sizeof *dir);
 	if (inode != NULL && dir != NULL)
 	{
@@ -128,6 +131,9 @@ bool dir_lookup(const struct dir *dir, const char *name, struct inode **inode)
 		*inode = inode_open(e.inode_sector);
 	else
 		*inode = NULL;
+
+	if (!strcmp(name, "."))
+		*inode = dir_get_inode(dir);
 
 	return *inode != NULL;
 }
@@ -226,6 +232,10 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1])
 	while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e)
 	{
 		dir->pos += sizeof e;
+
+		if (!strcmp(e.name, ".") || !strcmp(e.name, ".."))
+			continue;
+
 		if (e.in_use)
 		{
 			strlcpy(name, e.name, NAME_MAX + 1);

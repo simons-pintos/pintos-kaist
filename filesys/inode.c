@@ -390,3 +390,8 @@ uint32_t inode_is_dir(const struct inode *inode)
 {
 	return inode->data.is_dir;
 }
+
+bool inode_is_removed(const struct inode *inode)
+{
+	return inode->removed;
+}
