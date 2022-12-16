@@ -105,6 +105,7 @@ filesys_open(const char *name)
 
 	struct inode *inode = NULL;
 
+	printf("file_name is... %s \n", file_name);
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 	dir_close(dir);
@@ -156,6 +157,14 @@ struct dir* parse_path (char *path_name, char *file_name){
 	char *token, *save_ptr;
 	char *path = malloc(strlen(path_name) + 1);
 	strlcpy(path, path_name, strlen(path_name) + 1);
+
+	if (strstr(path, "/") == NULL){
+		strlcpy(file_name, path, strlen(path) + 1);
+		
+		dir_close(dir);
+		dir = dir_reopen(thread_current()->cwd);
+		return dir;
+	}
 
 	if(path[0] == '/'){
 		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
