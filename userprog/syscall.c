@@ -461,6 +461,9 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 	else
 	{
+		if (inode_is_dir(f->inode) == INODE_DIR)
+			return -1;
+
 		lock_acquire(&file_lock);
 		write_result = file_write(f, buffer, size);
 		lock_release(&file_lock);
@@ -671,6 +674,13 @@ bool readdir(int fd, char *name)
 
 	   READDIR_MAX_LEN is defined in lib/user/syscall.h.
 	   If your file system supports longer file names than the basic file system, you should increase this value from the default of 14. */
+
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	if (inode_is_dir(f->inode) == INODE_FILE)
+		return false;
 }
 
 bool isdir(int fd)

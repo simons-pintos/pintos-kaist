@@ -65,19 +65,26 @@ void filesys_done(void)
  * or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size)
 {
+	struct thread *curr = thread_current();
+	char file_name[NAME_MAX + 1];
+
+	char *copy_name = (char *)malloc(strlen(name) + 1);
+	strlcpy(copy_name, name, strlen(name) + 1);
+
 	/* struct disk_inode를 저장할 새로운 cluster 할당 */
 	cluster_t inode_cluster = fat_create_chain(0);
 	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
 
 	/* Root Directory open */
-	struct dir *dir = dir_open_root();
+	struct dir *dir = parse_path(copy_name, file_name);
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size, INODE_FILE) && dir_add(dir, name, inode_sector));
+	bool success = (dir != NULL && inode_create(inode_sector, initial_size, INODE_FILE) && dir_add(dir, file_name, inode_sector));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
 	dir_close(dir);
+	free(copy_name);
 
 	return success;
 }
@@ -90,12 +97,19 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
-	struct dir *dir = dir_open_root();
+	struct thread *curr = thread_current();
+	char file_name[NAME_MAX + 1];
+
+	char *copy_name = (char *)malloc(strlen(name) + 1);
+	strlcpy(copy_name, name, strlen(name) + 1);
+
+	struct dir *dir = parse_path(copy_name, file_name);
 	struct inode *inode = NULL;
 
 	if (dir != NULL)
-		dir_lookup(dir, name, &inode);
+		dir_lookup(dir, file_name, &inode);
 	dir_close(dir);
+	free(copy_name);
 
 	return file_open(inode);
 }
@@ -141,7 +155,7 @@ do_format(void)
 
 struct dir *parse_path(char *path_name, char *file_name)
 {
-	struct thread *curr;
+	struct thread *curr = thread_current();
 	struct dir *dir;
 
 	char *path = (char *)malloc(strlen(path_name) + 1);
