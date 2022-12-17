@@ -95,15 +95,17 @@ filesys_open(const char *name)
 {
 	char file_name[128];
 	struct dir *dir_path = parse_path (name, file_name);
-	if (dir_path == NULL)
+	if (dir_path == NULL){
 		return NULL;
+		}
 	struct dir *dir = dir_reopen(dir_path);
 	// struct dir *dir = dir_open_root();
 
 	struct inode *inode = NULL;
 
-	if (dir != NULL)
+	if (dir != NULL){
 		dir_lookup(dir, file_name, &inode);
+	}
 	dir_close(dir);
 
 	return file_open(inode);
@@ -163,7 +165,7 @@ do_format(void)
 
 struct dir* parse_path (char *path_name, char *file_name){
 	struct dir *dir = dir_open_root();
-	char *token, *save_ptr;
+	char *token, *next_token, *save_ptr;
 	char *path = malloc(strlen(path_name) + 1);
 	strlcpy(path, path_name, strlen(path_name) + 1);
 
@@ -183,14 +185,42 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir = dir_reopen(thread_current()->cwd);
 	}
 
-	for(token = strtok_r(path, "/", &save_ptr); token != NULL; token = strtok_r(NULL, "/", &save_ptr)){
+	
+	if(path[1] == NULL){
+		strlcpy(file_name, ".", 2);
+		return dir;
+	}
+
+	token = strtok_r(path, "/", &save_ptr);
+	next_token = strtok_r(NULL, "/", &save_ptr);
+
+	
+	while(next_token != NULL){
 		struct inode *inode = NULL;
 		if(!dir_lookup(dir, token, &inode)){
 			dir_close(dir);
 			return NULL;
 		}
-	dir_close(dir);
-	dir = dir_open(inode);
+
+		if (inode_is_dir(inode)){
+			dir_close(dir);
+			dir = dir_open(inode);
+		}
+		else{
+			dir_close(dir);
+			return NULL;
+		}
+
+		token = next_token;
+		next_token = strtok_r(NULL, "/", &save_ptr);
+	}
+
+	if (token == NULL){
+		printf("=== token is NULL\n");
+		printf("=== file name is... %d\n", file_name);
+		printf("=== path is... %s\n", path);
+		dir_close(dir);
+		return NULL;
 	}
 
 	strlcpy(file_name, token, strlen(token) + 1);
@@ -209,7 +239,6 @@ bool filesys_create_dir(const char *name){
 		return false;
 
 	struct dir *dir = dir_reopen(dir_path);
-	// struct dir *dir = dir_open_root();
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
 	
@@ -223,8 +252,7 @@ bool filesys_create_dir(const char *name){
 		dir_lookup(dir, file_name, &inode);
 		struct dir *new_dir = dir_open(inode);
 		dir_add(new_dir, ".", inode_sector);
-		dir_add(new_dir, "..", inode_sector);
-		// dir_add(new_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+		dir_add(new_dir, "..", inode_get_inumber(dir_get_inode(dir)));
 		dir_close(new_dir);
 	}
 
