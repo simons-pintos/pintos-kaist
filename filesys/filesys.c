@@ -93,7 +93,6 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
-	printf("=== (filesys_open)입력값: %s \n", name);
 	char file_name[128];
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL)
@@ -103,7 +102,6 @@ filesys_open(const char *name)
 
 	struct inode *inode = NULL;
 
-	printf("file_name is... %s \n", file_name);
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 	dir_close(dir);
@@ -116,7 +114,7 @@ filesys_open(const char *name)
  * Fails if no file named NAME exists,
  * or if an internal memory allocation fails. */
 bool filesys_remove(const char *name)
-{
+{  
 	char file_name[128];
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL)
@@ -145,6 +143,12 @@ do_format(void)
 	disk_sector_t root = cluster_to_sector(ROOT_DIR_CLUSTER);
 	if (!dir_create(root, 16))
 		PANIC("root directory creation failed");
+	
+	/* Root Directory에 ., .. 추가 */
+	struct dir *root_dir = dir_open_root();
+	dir_add(root_dir, ".", root);
+	dir_add(root_dir, "..", root);
+	dir_close(root_dir);
 
 	fat_close();
 #else
@@ -175,6 +179,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
 	}
 	else{
+		dir_close(dir);
 		dir = dir_reopen(thread_current()->cwd);
 	}
 
@@ -192,3 +197,38 @@ struct dir* parse_path (char *path_name, char *file_name){
 	free(path);
 	return dir;
 }
+
+bool filesys_create_dir(const char *name){
+	
+	cluster_t inode_cluster = fat_create_chain(0);
+	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
+	char file_name[128];
+	
+	struct dir *dir_path = parse_path (name, file_name);
+	if (dir_path == NULL)
+		return false;
+
+	struct dir *dir = dir_reopen(dir_path);
+	// struct dir *dir = dir_open_root();
+
+	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
+	
+	bool success = (dir != NULL && inode_create(inode_sector, 0, 1) && dir_add(dir, file_name, inode_sector));
+	if (!success && inode_cluster != 0)
+		fat_remove_chain(inode_cluster, 0);
+
+	/* directory에 .과 .. 추가 */
+	if (success){
+		struct inode *inode = NULL;
+		dir_lookup(dir, file_name, &inode);
+		struct dir *new_dir = dir_open(inode);
+		dir_add(new_dir, ".", inode_sector);
+		dir_add(new_dir, "..", inode_sector);
+		// dir_add(new_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+		dir_close(new_dir);
+	}
+
+	dir_close(dir);
+	return success;
+}
+

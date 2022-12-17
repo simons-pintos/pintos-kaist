@@ -189,6 +189,9 @@ bool dir_remove(struct dir *dir, const char *name)
 	ASSERT(dir != NULL);
 	ASSERT(name != NULL);
 
+	if (name == "." || name == "..")
+		return false;
+
 	/* Find directory entry. */
 	if (!lookup(dir, name, &e, &ofs))
 		goto done;
