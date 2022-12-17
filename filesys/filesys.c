@@ -102,7 +102,6 @@ filesys_open(const char *name)
 	// struct dir *dir = dir_open_root();
 
 	struct inode *inode = NULL;
-
 	if (dir != NULL){
 		dir_lookup(dir, file_name, &inode);
 	}
@@ -169,13 +168,13 @@ struct dir* parse_path (char *path_name, char *file_name){
 	char *path = malloc(strlen(path_name) + 1);
 	strlcpy(path, path_name, strlen(path_name) + 1);
 
-	if (strstr(path, "/") == NULL){
-		strlcpy(file_name, path, strlen(path) + 1);
-		
-		dir_close(dir);
-		dir = dir_reopen(thread_current()->cwd);
-		return dir;
-	}
+	// if (strstr(path, "/") == NULL){
+	// 	strlcpy(file_name, path, strlen(path) + 1);
+	// 	dir_close(dir);
+	// 	dir = dir_reopen(thread_current()->cwd);
+
+	// 	return dir;
+	// }
 
 	if(path[0] == '/'){
 		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
@@ -184,12 +183,11 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir_close(dir);
 		dir = dir_reopen(thread_current()->cwd);
 	}
-
-	
-	if(path[1] == NULL){
-		strlcpy(file_name, ".", 2);
-		return dir;
-	}
+	// if(path[1] == NULL){
+	// 	dir_close(dir);
+	// 	strlcpy(file_name, ".", 2);
+	// 	return dir;
+	// }
 
 	token = strtok_r(path, "/", &save_ptr);
 	next_token = strtok_r(NULL, "/", &save_ptr);
@@ -213,17 +211,33 @@ struct dir* parse_path (char *path_name, char *file_name){
 
 		token = next_token;
 		next_token = strtok_r(NULL, "/", &save_ptr);
+		/*walking done!*/
 	}
-
-	if (token == NULL){
-		printf("=== token is NULL\n");
-		printf("=== file name is... %d\n", file_name);
-		printf("=== path is... %s\n", path);
+	
+	if (token == NULL){ //예외처리
 		dir_close(dir);
 		return NULL;
 	}
+	else{
+		struct inode *inode = NULL;
+		
+		dir_lookup(dir, token, &inode);
+		
+		if (inode == NULL){
+			strlcpy(file_name, token, strlen(token) + 1);
+			return dir;
+		}
 
-	strlcpy(file_name, token, strlen(token) + 1);
+		if (inode_is_dir(inode)){ //마지막이 디렉토리인 경우
+			dir_close(dir);
+			dir = dir_open(inode);
+		}
+		else{//마지막이 파일인 경우
+			strlcpy(file_name, token, strlen(token) + 1);
+			// dir_close(dir);
+			// return NULL;
+		}
+	}
 	free(path);
 	return dir;
 }
