@@ -30,6 +30,7 @@ void syscall_handler(struct intr_frame *);
 #define MSR_STAR 0xc0000081			/* Segment selector msr */
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+#define READDIR_MAX_LEN 14
 
 #define STDIN 1	 // 표준 입력
 #define STDOUT 2 // 표준 출력
@@ -54,6 +55,9 @@ void close(int fd);
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
 bool isdir(int fd);
+bool chdir (const char *dir);
+bool mkdir (const char *dir);
+bool readdir (int fd, char name[READDIR_MAX_LEN + 1]);
 
 int dup2(int oldfd, int newfd);
 
@@ -263,6 +267,30 @@ void syscall_handler(struct intr_frame *f)
 	case SYS_ISDIR:
 		// argv[0]: int fd
 		f->R.rax = isdir(f->R.rdi);
+		break;
+
+	case SYS_CHDIR:
+		// argv[0]: const char *dir
+		check_address(f->R.rdi);
+		f->R.rax = chdir(f->R.rdi);
+		break;
+
+	case SYS_MKDIR:
+		// argv[0]: const char *dir
+		check_address(f->R.rdi);
+		f->R.rax = mkdir(f->R.rdi);
+		break;
+
+	case SYS_READDIR:
+		// argv[0]: int fd
+		// argv[1]: char *name
+		check_address(f->R.rsi);
+		f->R.rax = readdir(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_INUMBER:
+		// argv[0]: int fd
+		f->R.rax = inumber(f->R.rdi);
 		break;
 	}
 }
@@ -552,4 +580,46 @@ bool isdir (int fd) {
 		return false;
 
 	return inode_is_dir(f->inode);
+}
+
+bool chdir (const char *dir){
+
+	char file_name[128]; //unused
+	struct dir *d = parse_path(dir, file_name);
+	if (d == NULL)
+		return false;
+
+	dir_close(thread_current()->cwd);
+	thread_current()->cwd = d;
+	return true;
+}
+
+bool mkdir (const char *dir){
+	return filesys_create_dir(dir);
+}
+
+bool readdir (int fd, char name[READDIR_MAX_LEN + 1]){
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	if (!inode_is_dir(f->inode))
+		return false;
+
+	struct dir *dir = f;
+
+	bool success = dir_readdir(dir, name);
+
+	if (name == "." || name == "..")
+		success = readdir(fd, name);
+
+	return success;
+}
+
+int inumber (int fd){
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return -1;
+
+	return inode_get_inumber(f->inode);
 }

@@ -24,6 +24,7 @@ file_open(struct inode *inode)
 		free(file);
 		return NULL;
 	}
+	
 }
 
 /* Opens and returns a new file for the same inode as FILE.
