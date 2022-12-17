@@ -194,7 +194,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: const char *file
 		check_address(f->R.rdi);
 
-		remove(f->R.rdi);
+		f->R.rax = remove(f->R.rdi);
 		break;
 
 	case SYS_OPEN:

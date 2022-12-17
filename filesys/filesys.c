@@ -150,13 +150,8 @@ bool filesys_remove(const char *name)
 		{
 			if (inode_get_inumber(dir_get_inode(curr->curr_dir)) != inode_get_inumber(dir_get_inode(target_dir)))
 			{
-				printf("[DEBUG]Try to remove directory which is current working directory\n");
 				success = dir_remove(dir, file_name);
 			}
-		}
-		else
-		{
-			printf("[DEBUG]Try to remove directory which is not empty\n");
 		}
 
 		dir_close(target_dir);
@@ -170,7 +165,6 @@ bool filesys_remove(const char *name)
 	dir_close(dir);
 	free(copy_name);
 
-	printf("[DEBUG][filesys_remove]success: %d\n", success);
 	return success;
 }
 
