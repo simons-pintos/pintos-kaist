@@ -84,6 +84,7 @@ void inode_init(void)
  * Returns false if memory or disk allocation fails. */
 bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 {
+
 	struct inode_disk *disk_inode = NULL;
 	cluster_t start_clst;
 	bool success = false;
@@ -116,7 +117,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 				size_t i;
 
 				/* make cluster chain based length and initialize zero*/
-				while (sectors > 0)
+				while (sectors > 1)
 				{
 					w_sector = cluster_to_sector(target);
 					disk_write(filesys_disk, w_sector, zeros);

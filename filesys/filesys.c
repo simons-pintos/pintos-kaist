@@ -126,6 +126,7 @@ filesys_open(const char *name)
 bool filesys_remove(const char *name)
 {
 	struct thread *curr = thread_current();
+	bool success = false;
 	char file_name[NAME_MAX + 1];
 
 	char *copy_name = (char *)malloc(strlen(name) + 1);
@@ -134,10 +135,42 @@ bool filesys_remove(const char *name)
 	strlcpy(copy_name, name, strlen(name) + 1);
 
 	struct dir *dir = parse_path(copy_name, file_name);
+	if (dir == NULL)
+		return false;
 
-	bool success = dir != NULL && dir_remove(dir, file_name);
+	struct inode *inode;
+	dir_lookup(dir, file_name, &inode);
+
+	if (inode_is_dir(inode) == INODE_DIR)
+	{
+		struct dir *target_dir = dir_open(inode);
+		char temp_name[NAME_MAX + 1];
+
+		if (!dir_readdir(target_dir, temp_name))
+		{
+			if (inode_get_inumber(dir_get_inode(curr->curr_dir)) != inode_get_inumber(dir_get_inode(target_dir)))
+			{
+				printf("[DEBUG]Try to remove directory which is current working directory\n");
+				success = dir_remove(dir, file_name);
+			}
+		}
+		else
+		{
+			printf("[DEBUG]Try to remove directory which is not empty\n");
+		}
+
+		dir_close(target_dir);
+	}
+	else
+	{
+		inode_close(inode);
+		success = dir_remove(dir, file_name);
+	}
+
 	dir_close(dir);
+	free(copy_name);
 
+	printf("[DEBUG][filesys_remove]success: %d\n", success);
 	return success;
 }
 

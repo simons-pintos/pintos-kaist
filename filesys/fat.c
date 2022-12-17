@@ -223,14 +223,14 @@ void fat_remove_chain(cluster_t clst, cluster_t pclst)
 /* Update a value in the FAT table. */
 void fat_put(cluster_t clst, cluster_t val)
 {
-	fat_fs->fat[clst] = val;
+	fat_fs->fat[clst - 1] = val;
 }
 
 /* Fetch a value in the FAT table. */
 cluster_t
 fat_get(cluster_t clst)
 {
-	return fat_fs->fat[clst];
+	return fat_fs->fat[clst - 1];
 }
 
 /* Covert a cluster # to a sector number. */
@@ -249,4 +249,19 @@ sector_to_cluster(disk_sector_t sector)
 		return 0;
 
 	return clst;
+}
+
+void print_fat(void)
+{
+	printf("\n=========================FAT====================================================================================\n");
+	for (int i = 0; i < fat_fs->bs.fat_sectors; i++)
+	{
+		if (fat_fs->fat[i] == EOChain)
+			printf(" [%3d|EOC] ", i + 1);
+		else
+			printf(" [%3d|%3d] ", i + 1, fat_fs->fat[i]);
+		if (i % 5 == 4)
+			printf("\n");
+	}
+	printf("\n================================================================================================================\n");
 }
