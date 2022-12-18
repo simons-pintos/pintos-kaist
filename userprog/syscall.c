@@ -369,7 +369,6 @@ bool remove(const char *file)
 int open(const char *file)
 {
 	lock_acquire(&file_lock);
-	printf("==============come here!!==============\n");
 	struct file *f = filesys_open(file);
 	lock_release(&file_lock);
 
@@ -592,12 +591,23 @@ bool chdir (const char *dir){
 	if (d == NULL)
 		return false;
 
+	struct inode *inode = dir_get_inode(d);
+	if (!is_kernel_vaddr(inode))
+		return false;
+
+	if (inode_is_removed(inode)){
+		return false;
+	}
+	
+
 	dir_close(thread_current()->cwd);
 	thread_current()->cwd = d;
 	return true;
 }
 
 bool mkdir (const char *dir){
+	if(strlen(dir) == 0)
+		return false;
 	return filesys_create_dir(dir);
 }
 

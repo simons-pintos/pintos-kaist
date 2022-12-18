@@ -76,7 +76,7 @@ bool filesys_create(const char *name, off_t initial_size)
 	// struct dir *dir = dir_open_root();
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, file_name, inode_sector));
+	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, file_name, inode_sector) && !inode_is_removed(dir_get_inode(thread_current()->cwd)));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
@@ -93,30 +93,26 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
-	printf("DEBUG 700\n");
 	char file_name[128];
 	file_name[0] = '\0';
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL){
 		return NULL;
 		}
-	printf("DEBUG 710\n");
-	printf("DEBUG file_name : %s\n", file_name);
 
 	if (strlen(file_name) == 0){ 	//마지막이 디렉토리인 경우
-		printf("DEBUG IF\n");
 		struct inode *inode = dir_get_inode(dir_path);
-		if (inode_is_removed(inode)){
-			printf("DEBUG 800\n");
+		if (inode == NULL)
+			return NULL;
+		
+		if (inode_is_removed(inode) || inode_is_removed(dir_get_inode(thread_current()->cwd))){
 			return NULL;
 		}
 		else{
-			printf("DEBUG 900\n");
 			return file_open(inode);
 			}
 	}
 	else{ 								//마지막이 파일인 경우
-		printf("DEBUG ELSE\n");
 		struct dir *dir = dir_reopen(dir_path);
 		struct inode *inode = NULL;
 		if (dir != NULL){
@@ -125,12 +121,13 @@ filesys_open(const char *name)
 
 		dir_close(dir);
 		
+		if (inode == NULL)
+			return NULL;
+
 		if (inode_is_removed(inode)){
-			printf("DEBUG 810\n");
 			return NULL;
 		}
 		else{
-			printf("DEBUG 910\n");
 			return file_open(inode);
 		}
 	}
@@ -226,8 +223,6 @@ struct dir* parse_path (char *path_name, char *file_name){
 	}
 
 	token = strtok_r(path, "/", &save_ptr);
-	printf("parse_path : %s \n", token);
-	printf("file_name : %s \n", file_name);
 	next_token = strtok_r(NULL, "/", &save_ptr);
 
 	if (token == NULL){ // path_name = "/" 로 입력받은 상태, root directory를 return (case 9)
@@ -264,7 +259,6 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir_lookup(dir, token, &inode);
 		
 		if (inode == NULL){
-			printf("OMGOMG11\n");
 			strlcpy(file_name, token, strlen(token) + 1);
 			return dir;
 		}
@@ -274,7 +268,6 @@ struct dir* parse_path (char *path_name, char *file_name){
 			dir = dir_open(inode);
 		}
 		else{//마지막이 파일인 경우
-			printf("OMGOMG2\n");
 			strlcpy(file_name, token, strlen(token) + 1);
 
 		}
