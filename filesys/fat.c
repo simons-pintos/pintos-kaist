@@ -161,7 +161,7 @@ void fat_boot_create(void)
 
 void fat_fs_init(void)
 {
-	fat_fs->fat_length = (fat_fs->bs.fat_sectors * DISK_SECTOR_SIZE) / (sizeof(cluster_t) * SECTORS_PER_CLUSTER);
+	fat_fs->fat_length = disk_size(filesys_disk) - 1 - fat_fs->bs.fat_sectors;
 	fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
 }
 
@@ -223,6 +223,9 @@ void fat_remove_chain(cluster_t clst, cluster_t pclst)
 /* Update a value in the FAT table. */
 void fat_put(cluster_t clst, cluster_t val)
 {
+	if (cluster_to_sector(clst - 1) >= disk_size(filesys_disk))
+		return;
+
 	fat_fs->fat[clst - 1] = val;
 }
 
