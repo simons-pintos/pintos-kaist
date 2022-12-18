@@ -143,6 +143,13 @@ bool filesys_remove(const char *name)
 
 	if (inode_is_dir(inode) == INODE_DIR)
 	{
+		if (inode_is_open(inode))
+		{
+			inode_close(inode);
+			free(copy_name);
+			return NULL;
+		}
+
 		struct dir *target_dir = dir_open(inode);
 		char temp_name[NAME_MAX + 1];
 
