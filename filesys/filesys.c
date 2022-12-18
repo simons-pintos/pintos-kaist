@@ -93,6 +93,9 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
+	if (strlen(name) == 1 && name[0] == '/')
+		return file_open(dir_get_inode(dir_open_root()));
+
 	char file_name[128];
 	file_name[0] = '\0';
 	struct dir *dir_path = parse_path (name, file_name);
@@ -155,6 +158,7 @@ bool filesys_remove(const char *name)
 			if (dir_is_empty(dir_path)){
 				dir_read_and_finddir(upper_dir, dir_path, file_name);
 				dir_close(dir_path);
+				
 				return dir_remove(upper_dir, file_name);
 			}
 			else{
@@ -257,8 +261,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 		struct inode *inode = NULL;
 		
 		dir_lookup(dir, token, &inode);
-		
-		if (inode == NULL){
+		if (inode == NULL || inode_is_removed(inode)){
 			strlcpy(file_name, token, strlen(token) + 1);
 			return dir;
 		}
@@ -309,3 +312,41 @@ bool filesys_create_dir(const char *name){
 	return success;
 }
 
+
+bool filesys_change_dir(const char *dir){
+	char file_name[128];
+	file_name[0] = '\0';
+	struct dir *dir_path = parse_path (dir, file_name);
+
+	if (file_name[0] != '\0'){
+		dir_close(dir_path);
+		return false;
+	}
+
+	thread_current()->cwd = dir_path;
+	return true;
+
+	// printf("===Start of listing.===\n");
+	// char name_in_dir[15];
+	// while (dir_readdir(dir_path, name_in_dir))
+	// 	printf("%s\n", name_in_dir);
+	// printf("===End of listing.===\n");
+
+	// if (dir_path == NULL)
+	// 	return false;
+
+	// struct inode *inode = NULL;
+	// dir_lookup(dir_path, file_name, &inode);
+
+	// if (inode == NULL || inode_is_removed(inode))
+	// 	return false;
+
+	// if (inode_is_dir(inode)){
+	// 	dir_close(dir_path);
+	// 	thread_current()->cwd = dir_open(inode);
+	// 	return true;
+	// }
+	// else{
+	// 	return false;
+	// }
+}

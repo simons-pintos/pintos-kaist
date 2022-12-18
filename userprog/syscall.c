@@ -14,6 +14,7 @@
 #include "filesys/file.h"
 #include "vm/vm.h"
 #include "filesys/inode.h"
+#include "filesys/directory.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -351,7 +352,10 @@ initial_size를 가진 file 생성
 만들지만 open하지는 않는다
 */
 bool create(const char *file, unsigned initial_size)
-{
+{	
+	if (strlen(file) == 0 || strlen(file) > 14)
+		return false;
+
 	lock_acquire(&file_lock);
 	bool succ = filesys_create(file, initial_size);
 	lock_release(&file_lock);
@@ -367,7 +371,10 @@ bool remove(const char *file)
 
 /* 입력 받은 file을 열어서 file descripter 생성 */
 int open(const char *file)
-{
+{	
+	if (strlen(file) == 0)
+		return -1;
+
 	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
 	lock_release(&file_lock);
@@ -585,24 +592,7 @@ bool isdir (int fd) {
 }
 
 bool chdir (const char *dir){
-
-	char file_name[128]; //unused
-	struct dir *d = parse_path(dir, file_name);
-	if (d == NULL)
-		return false;
-
-	struct inode *inode = dir_get_inode(d);
-	if (!is_kernel_vaddr(inode))
-		return false;
-
-	if (inode_is_removed(inode)){
-		return false;
-	}
-	
-
-	dir_close(thread_current()->cwd);
-	thread_current()->cwd = d;
-	return true;
+	return filesys_change_dir(dir);
 }
 
 bool mkdir (const char *dir){
