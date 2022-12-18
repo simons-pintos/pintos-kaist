@@ -147,12 +147,7 @@ bool filesys_remove(const char *name)
 		char temp_name[NAME_MAX + 1];
 
 		if (!dir_readdir(target_dir, temp_name))
-		{
-			if (inode_get_inumber(dir_get_inode(curr->curr_dir)) != inode_get_inumber(dir_get_inode(target_dir)))
-			{
-				success = dir_remove(dir, file_name);
-			}
-		}
+			success = dir_remove(dir, file_name);
 
 		dir_close(target_dir);
 	}
