@@ -696,4 +696,16 @@ int inumber(int fd)
 	return inode_get_inumber(f->inode);
 }
 
-int symlink(const char *target, const char *linkpath) {}
+int symlink(const char *target, const char *linkpath)
+{
+	char *copy_linkpath = (char *)malloc(strlen(linkpath) + 1);
+	strlcpy(copy_linkpath, linkpath, strlen(linkpath) + 1);
+
+	lock_acquire(&file_lock);
+	int result = filesys_create_link(target, copy_linkpath);
+	lock_release(&file_lock);
+
+	free(copy_linkpath);
+
+	return result;
+}

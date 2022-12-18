@@ -20,5 +20,6 @@ bool filesys_remove(const char *name);
 
 struct dir *parse_path(char *path_name, char *file_name);
 bool filesys_create_dir(const char *dir);
+int filesys_create_link(const char *target, const char *linkpath);
 
 #endif /* filesys/filesys.h */

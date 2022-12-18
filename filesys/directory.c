@@ -215,10 +215,12 @@ bool dir_remove(struct dir *dir, const char *name)
 
 	/* Remove inode. */
 	inode_remove(inode);
+
 	success = true;
 
 done:
 	inode_close(inode);
+
 	return success;
 }
 

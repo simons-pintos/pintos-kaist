@@ -18,8 +18,9 @@ struct inode_disk
 	disk_sector_t start;
 	off_t length; /* File size in bytes. */
 	uint32_t is_dir;
-	unsigned magic;		  /* Magic number. */
-	uint32_t unused[124]; /* Not used. */
+	uint32_t is_link;
+	unsigned magic;		 /* Magic number. */
+	char link_name[492]; /* Not used. */
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -99,6 +100,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 		size_t sectors = bytes_to_sectors(length);
 		disk_inode->length = length;
 		disk_inode->is_dir = is_dir;
+		disk_inode->is_link = false;
 		disk_inode->magic = INODE_MAGIC;
 
 		/* data cluster allocation */
@@ -126,11 +128,40 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
 					sectors--;
 				}
 			}
+
 			success = true;
 		}
 		free(disk_inode);
 	}
 	return success;
+}
+
+bool inode_create_link(disk_sector_t sector, char *path_name)
+{
+	struct inode_disk *disk_inode = NULL;
+	cluster_t start_clst;
+
+	ASSERT(sizeof *disk_inode == DISK_SECTOR_SIZE);
+
+	disk_inode = calloc(1, sizeof *disk_inode);
+	if (disk_inode == NULL)
+		return false;
+
+	disk_inode->length = 0;
+	disk_inode->is_dir = INODE_FILE;
+	disk_inode->is_link = true;
+	disk_inode->magic = INODE_MAGIC;
+
+	strlcpy(disk_inode->link_name, path_name, strlen(path_name) + 1);
+
+	if (start_clst = fat_create_chain(0))
+		disk_inode->start = cluster_to_sector(start_clst);
+
+	disk_write(filesys_disk, sector, disk_inode);
+
+	free(disk_inode);
+
+	return true;
 }
 
 /* Reads an inode from SECTOR
@@ -210,6 +241,8 @@ void inode_close(struct inode *inode)
 
 			/* remove file data */
 			clst = sector_to_cluster(inode->data.start);
+			// printf("[DEBUG]clst: %d\n", clst);
+			// print_fat(400, 500);
 			fat_remove_chain(clst, 0);
 		}
 
@@ -395,4 +428,14 @@ uint32_t inode_is_dir(const struct inode *inode)
 bool inode_is_removed(const struct inode *inode)
 {
 	return inode->removed;
+}
+
+bool inode_is_link(const struct inode *inode)
+{
+	return inode->data.is_link;
+}
+
+char *inode_get_link_name(const struct inode *inode)
+{
+	return inode->data.link_name;
 }

@@ -254,10 +254,10 @@ sector_to_cluster(disk_sector_t sector)
 	return clst;
 }
 
-void print_fat(void)
+void print_fat(int start, int end)
 {
 	printf("\n=========================FAT====================================================================================\n");
-	for (int i = 0; i < fat_fs->bs.fat_sectors; i++)
+	for (int i = start; i < end; i++)
 	{
 		if (fat_fs->fat[i] == EOChain)
 			printf(" [%3d|EOC] ", i + 1);

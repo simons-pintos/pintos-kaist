@@ -36,7 +36,7 @@ void fat_put(cluster_t clst, cluster_t val);
 disk_sector_t cluster_to_sector(cluster_t clst);
 cluster_t sector_to_cluster(disk_sector_t sector);
 
-void print_fat(void);
+void print_fat(int start, int end);
 
 #endif
 /* filesys/fat.h */

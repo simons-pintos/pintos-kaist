@@ -66,19 +66,17 @@ void filesys_done(void)
 bool filesys_create(const char *name, off_t initial_size)
 {
 	struct thread *curr = thread_current();
-	char file_name[NAME_MAX + 1];
 
 	char *copy_name = (char *)malloc(strlen(name) + 1);
-	if (copy_name == NULL)
-		return false;
 	strlcpy(copy_name, name, strlen(name) + 1);
+
+	/* Root Directory open */
+	char file_name[NAME_MAX + 1];
+	struct dir *dir = parse_path(copy_name, file_name);
 
 	/* struct disk_inode를 저장할 새로운 cluster 할당 */
 	cluster_t inode_cluster = fat_create_chain(0);
 	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
-
-	/* Root Directory open */
-	struct dir *dir = parse_path(copy_name, file_name);
 
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
 	bool success = (dir != NULL && inode_create(inode_sector, initial_size, INODE_FILE) && dir_add(dir, file_name, inode_sector));
@@ -100,21 +98,32 @@ struct file *
 filesys_open(const char *name)
 {
 	struct thread *curr = thread_current();
-	char file_name[NAME_MAX + 1];
+	struct inode *inode = NULL;
 
-	char *copy_name = (char *)malloc(strlen(name) + 1);
-	if (copy_name == NULL)
-		return false;
+	char copy_name[512];
 	strlcpy(copy_name, name, strlen(name) + 1);
 
+	char file_name[NAME_MAX + 1];
+	char *link_path;
+
 	struct dir *dir = parse_path(copy_name, file_name);
-	struct inode *inode = NULL;
 
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 
+	while (inode_is_link(inode))
+	{
+		link_path = inode_get_link_name(inode);
+		strlcpy(copy_name, link_path, strlen(link_path) + 1);
+
+		dir_close(dir);
+		dir = parse_path(copy_name, file_name);
+
+		if (dir != NULL)
+			dir_lookup(dir, file_name, &inode);
+	}
+
 	dir_close(dir);
-	free(copy_name);
 
 	return file_open(inode);
 }
@@ -127,16 +136,12 @@ bool filesys_remove(const char *name)
 {
 	struct thread *curr = thread_current();
 	bool success = false;
-	char file_name[NAME_MAX + 1];
 
 	char *copy_name = (char *)malloc(strlen(name) + 1);
-	if (copy_name == NULL)
-		return false;
 	strlcpy(copy_name, name, strlen(name) + 1);
 
+	char file_name[NAME_MAX + 1];
 	struct dir *dir = parse_path(copy_name, file_name);
-	if (dir == NULL)
-		return false;
 
 	struct inode *inode;
 	dir_lookup(dir, file_name, &inode);
@@ -202,7 +207,7 @@ struct dir *parse_path(char *path_name, char *file_name)
 	struct thread *curr = thread_current();
 	struct dir *dir;
 
-	char *path = (char *)malloc(strlen(path_name) + 1);
+	char path[512];
 	strlcpy(path, path_name, strlen(path_name) + 1);
 
 	if (path == NULL || file_name == NULL)
@@ -217,15 +222,32 @@ struct dir *parse_path(char *path_name, char *file_name)
 		dir = dir_reopen(curr->curr_dir);
 
 	char *token, *next_token, *save_ptr;
-
 	token = strtok_r(path, "/", &save_ptr);
 	next_token = strtok_r(NULL, "/", &save_ptr);
 
-	struct inode *inode;
+	struct inode *inode = NULL;
 	while (token != NULL && next_token != NULL)
 	{
 		if (!dir_lookup(dir, token, &inode))
 			goto fail;
+
+		// if (inode_is_link(inode))
+		// {
+		// 	char *link_name = inode_get_link_name(inode);
+		// 	strlcpy(path, link_name, strlen(link_name) + 1);
+
+		// 	dir_close(dir);
+
+		// 	if (path[0] == '/')
+		// 		dir = dir_open_root();
+		// 	else
+		// 		dir = dir_reopen(curr->curr_dir);
+
+		// 	token = strtok_r(path, "/", &save_ptr);
+		// 	next_token = strtok_r(NULL, "/", &save_ptr);
+
+		// 	continue;
+		// }
 
 		if (inode_is_dir(inode) == INODE_FILE)
 			goto fail;
@@ -243,10 +265,7 @@ struct dir *parse_path(char *path_name, char *file_name)
 	else
 	{
 		if (strlen(token) > NAME_MAX)
-		{
-			dir_close(dir);
-			return NULL;
-		}
+			goto fail;
 
 		strlcpy(file_name, token, strlen(token) + 1);
 	}
@@ -255,9 +274,6 @@ struct dir *parse_path(char *path_name, char *file_name)
 
 fail:
 	dir_close(dir);
-	if (inode)
-		inode_close(inode);
-
 	return NULL;
 }
 
@@ -265,7 +281,7 @@ bool filesys_create_dir(const char *name)
 {
 	bool success;
 
-	char *file_name = (char *)malloc(strlen(name) + 1);
+	char file_name[NAME_MAX + 1];
 	struct dir *dir = parse_path(name, file_name);
 	if (dir == NULL)
 		return false;
@@ -282,14 +298,39 @@ bool filesys_create_dir(const char *name)
 	bool succ_create_curr_dir = dir_add(sub_dir = dir_open(sub_dir_inode), ".", inode_sector);
 	bool succ_create_prev_dir = dir_add(sub_dir, "..", inode_get_inumber(dir_get_inode(dir)));
 
-	success = (dir != NULL && succ_create && succ_add && succ_lookup && succ_create_curr_dir && succ_create_prev_dir);
+	success = (succ_create && succ_add && succ_lookup && succ_create_curr_dir && succ_create_prev_dir);
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
 	dir_close(sub_dir);
 	dir_close(dir);
 
-	free(file_name);
-
 	return success;
+}
+
+int filesys_create_link(const char *target, const char *linkpath)
+{
+	struct thread *curr = thread_current();
+
+	/* Root Directory open */
+	char file_name[NAME_MAX + 1];
+	struct dir *dir = parse_path(linkpath, file_name);
+	if (dir == NULL)
+		return -1;
+
+	/* struct disk_inode를 저장할 새로운 cluster 할당 */
+	cluster_t inode_cluster = fat_create_chain(0);
+	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
+
+	bool succ_create = inode_create_link(inode_sector, target);
+	bool succ_dir_add = dir_add(dir, file_name, inode_sector);
+
+	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
+	bool success = (succ_create && succ_dir_add);
+	if (!success && inode_cluster != 0)
+		fat_remove_chain(inode_cluster, 0);
+
+	dir_close(dir);
+
+	return success - 1;
 }
