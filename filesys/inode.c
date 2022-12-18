@@ -396,3 +396,17 @@ bool inode_is_removed(const struct inode *inode)
 {
 	return inode->removed;
 }
+
+bool inode_is_open(const struct inode *inode)
+{
+	struct list_elem *temp_elem = list_begin(&open_inodes);
+	for (; temp_elem != list_tail(&open_inodes); temp_elem = temp_elem->next)
+	{
+		struct inode *temp_inode = list_entry(temp_elem, struct inode, elem);
+
+		if (temp_inode->sector == inode->sector)
+			return true;
+	}
+
+	return false;
+}
