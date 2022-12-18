@@ -231,23 +231,27 @@ struct dir *parse_path(char *path_name, char *file_name)
 		if (!dir_lookup(dir, token, &inode))
 			goto fail;
 
-		// if (inode_is_link(inode))
-		// {
-		// 	char *link_name = inode_get_link_name(inode);
-		// 	strlcpy(path, link_name, strlen(link_name) + 1);
+		if (inode_is_link(inode))
+		{
+			char *link_name = inode_get_link_name(inode);
+			strlcpy(path, link_name, strlen(link_name) + 1);
 
-		// 	dir_close(dir);
+			strlcat(path, "/", strlen(path) + 2);
+			strlcat(path, next_token, strlen(path) + strlen(next_token) + 1);
+			strlcat(path, save_ptr, strlen(path) + strlen(save_ptr) + 1);
 
-		// 	if (path[0] == '/')
-		// 		dir = dir_open_root();
-		// 	else
-		// 		dir = dir_reopen(curr->curr_dir);
+			dir_close(dir);
 
-		// 	token = strtok_r(path, "/", &save_ptr);
-		// 	next_token = strtok_r(NULL, "/", &save_ptr);
+			if (path[0] == '/')
+				dir = dir_open_root();
+			else
+				dir = dir_reopen(curr->curr_dir);
 
-		// 	continue;
-		// }
+			token = strtok_r(path, "/", &save_ptr);
+			next_token = strtok_r(NULL, "/", &save_ptr);
+
+			continue;
+		}
 
 		if (inode_is_dir(inode) == INODE_FILE)
 			goto fail;
