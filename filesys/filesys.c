@@ -241,7 +241,15 @@ struct dir *parse_path(char *path_name, char *file_name)
 	if (token == NULL)
 		strlcpy(file_name, ".", 2);
 	else
+	{
+		if (strlen(token) > NAME_MAX)
+		{
+			dir_close(dir);
+			return NULL;
+		}
+
 		strlcpy(file_name, token, strlen(token) + 1);
+	}
 
 	return dir;
 
