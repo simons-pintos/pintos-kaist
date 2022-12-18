@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.html": "html",
         "random.h": "c",
         "process.h": "c",
         "intr-stubs.h": "c",
@@ -35,6 +36,7 @@
         "disk.h": "c",
         "bitmap.h": "c",
         "off_t.h": "c",
-        "directory.h": "c"
+        "directory.h": "c",
+        "string.h": "c"
     }
 }
