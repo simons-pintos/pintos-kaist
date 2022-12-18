@@ -178,6 +178,11 @@ do_format(void)
 	if (!dir_create(root, 16))
 		PANIC("root directory creation failed");
 
+	struct dir *root_dir = dir_open_root();
+	dir_add(root_dir, ".", root);
+	dir_add(root_dir, "..", root);
+	dir_close(root_dir);
+
 	fat_close();
 #else
 	free_map_create();
