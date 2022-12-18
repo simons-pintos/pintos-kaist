@@ -387,3 +387,11 @@ off_t inode_length(const struct inode *inode)
 bool inode_is_dir (const struct inode *inode){
 	return inode->data.is_dir;
 }
+
+disk_sector_t inode_sector(struct inode *inode){
+	return inode->sector;
+}
+
+bool inode_is_removed (const struct inode *inode){
+	return inode->removed;
+}

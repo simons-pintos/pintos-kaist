@@ -161,7 +161,7 @@ void fat_boot_create(void)
 
 void fat_fs_init(void)
 {
-	fat_fs->fat_length = (fat_fs->bs.fat_sectors * DISK_SECTOR_SIZE) / (sizeof(cluster_t) * SECTORS_PER_CLUSTER);
+	fat_fs->fat_length = disk_size(filesys_disk) - 1 - fat_fs->bs.fat_sectors;
 	fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
 }
 

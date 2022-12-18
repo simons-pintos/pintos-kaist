@@ -200,7 +200,7 @@ bool dir_remove(struct dir *dir, const char *name)
 	inode = inode_open(e.inode_sector);
 	if (inode == NULL)
 		goto done;
-
+	
 	/* Erase directory entry. */
 	e.in_use = false;
 	if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
@@ -231,5 +231,37 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1])
 			return true;
 		}
 	}
+	return false;
+}
+
+/* Opens and returns the finding directory. */
+bool dir_read_and_finddir(struct dir *dir, struct dir *child_dir, char name[NAME_MAX + 1])
+{
+	struct dir_entry e;
+
+	while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e)
+	{
+		dir->pos += sizeof e;
+		if (e.in_use)
+		{	
+			if(e.inode_sector == inode_sector(child_dir->inode)){
+				strlcpy(name, e.name, NAME_MAX + 1);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool dir_is_empty(struct dir *dir)
+{
+	char name_in_dir[15];
+	int count = 0;
+	while (dir_readdir(dir, name_in_dir))
+		count += 1;
+	
+	if (count == 2)
+		return true;
+	
 	return false;
 }

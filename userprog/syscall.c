@@ -193,7 +193,7 @@ void syscall_handler(struct intr_frame *f)
 		// argv[0]: const char *file
 		check_address(f->R.rdi);
 
-		remove(f->R.rdi);
+		f->R.rax = remove(f->R.rdi);
 		break;
 
 	case SYS_OPEN:
@@ -369,6 +369,7 @@ bool remove(const char *file)
 int open(const char *file)
 {
 	lock_acquire(&file_lock);
+	printf("==============come here!!==============\n");
 	struct file *f = filesys_open(file);
 	lock_release(&file_lock);
 
@@ -610,11 +611,11 @@ bool readdir (int fd, char name[READDIR_MAX_LEN + 1]){
 
 	struct dir *dir = f;
 
-	bool success = dir_readdir(dir, name);
-
-	if (name == "." || name == "..")
-		success = readdir(fd, name);
-
+	bool success;
+	while(name == "." || name == ".."){
+		success = dir_readdir(dir, name);
+	}
+	
 	return success;
 }
 

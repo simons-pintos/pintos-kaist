@@ -93,25 +93,46 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
+	printf("DEBUG 700\n");
 	char file_name[128];
 	file_name[0] = '\0';
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL){
 		return NULL;
 		}
+	printf("DEBUG 710\n");
+	printf("DEBUG file_name : %s\n", file_name);
 
-	if (file_name[0] == '\0'){ 	//마지막이 디렉토리인 경우
-		return file_open(dir_get_inode(dir_path));
+	if (strlen(file_name) == 0){ 	//마지막이 디렉토리인 경우
+		printf("DEBUG IF\n");
+		struct inode *inode = dir_get_inode(dir_path);
+		if (inode_is_removed(inode)){
+			printf("DEBUG 800\n");
+			return NULL;
+		}
+		else{
+			printf("DEBUG 900\n");
+			return file_open(inode);
+			}
 	}
 	else{ 								//마지막이 파일인 경우
+		printf("DEBUG ELSE\n");
 		struct dir *dir = dir_reopen(dir_path);
 		struct inode *inode = NULL;
 		if (dir != NULL){
 			dir_lookup(dir, file_name, &inode);
 		}
-		dir_close(dir);
 
-		return file_open(inode);
+		dir_close(dir);
+		
+		if (inode_is_removed(inode)){
+			printf("DEBUG 810\n");
+			return NULL;
+		}
+		else{
+			printf("DEBUG 910\n");
+			return file_open(inode);
+		}
 	}
 }
 
@@ -122,16 +143,39 @@ filesys_open(const char *name)
 bool filesys_remove(const char *name)
 {  
 	char file_name[128];
+	file_name[0] = '\0';
+	bool success = false;
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL)
 		return false;
-	
 
-	struct dir *dir = dir_reopen(dir_path);
-	bool success = dir != NULL && dir_remove(dir, file_name);
-	dir_close(dir);
+	/* name(지워야할 대상)이 디렉터리일 경우 */
+	if (strlen(file_name) == 0){
+		struct inode *inode = NULL;
+		dir_lookup(dir_path, "..", &inode);
+		if (inode_is_dir(inode)){
+			struct dir *upper_dir = dir_open(inode);
+			if (dir_is_empty(dir_path)){
+				dir_read_and_finddir(upper_dir, dir_path, file_name);
+				dir_close(dir_path);
+				return dir_remove(upper_dir, file_name);
+			}
+			else{
+				dir_close(upper_dir);
+				return false;
+			}
+		}
+		else{
+			return false;
+		}
+	}
+	/* name(지워야할 대상)이 파일일 경우 */
+	else{
+		struct dir *dir = dir_reopen(dir_path);
+		success = dir != NULL && dir_remove(dir, file_name);
+		dir_close(dir);
+	}
 	//dir_close(dir_path); 를 해주어야 할듯?(추후고민)
-
 	return success;
 }
 
@@ -172,7 +216,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 	char *token, *next_token, *save_ptr;
 	char *path = malloc(strlen(path_name) + 1);
 	strlcpy(path, path_name, strlen(path_name) + 1);
-
+	
 	if(path[0] == '/'){
 		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
 	}
@@ -180,8 +224,15 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir_close(dir);
 		dir = dir_reopen(thread_current()->cwd);
 	}
+
 	token = strtok_r(path, "/", &save_ptr);
+	printf("parse_path : %s \n", token);
+	printf("file_name : %s \n", file_name);
 	next_token = strtok_r(NULL, "/", &save_ptr);
+
+	if (token == NULL){ // path_name = "/" 로 입력받은 상태, root directory를 return (case 9)
+		return dir_open_root();
+	}
 
 	while(next_token != NULL){
 		struct inode *inode = NULL;
@@ -213,6 +264,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir_lookup(dir, token, &inode);
 		
 		if (inode == NULL){
+			printf("OMGOMG11\n");
 			strlcpy(file_name, token, strlen(token) + 1);
 			return dir;
 		}
@@ -222,6 +274,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 			dir = dir_open(inode);
 		}
 		else{//마지막이 파일인 경우
+			printf("OMGOMG2\n");
 			strlcpy(file_name, token, strlen(token) + 1);
 
 		}
