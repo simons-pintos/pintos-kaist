@@ -111,7 +111,7 @@ filesys_open(const char *name)
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 
-	while (inode_is_link(inode))
+	while (inode != NULL && inode_is_link(inode))
 	{
 		link_path = inode_get_link_name(inode);
 		strlcpy(copy_name, link_path, strlen(link_path) + 1);
