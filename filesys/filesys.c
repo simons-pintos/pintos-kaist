@@ -94,20 +94,25 @@ struct file *
 filesys_open(const char *name)
 {
 	char file_name[128];
+	file_name[0] = '\0';
 	struct dir *dir_path = parse_path (name, file_name);
 	if (dir_path == NULL){
 		return NULL;
 		}
-	struct dir *dir = dir_reopen(dir_path);
-	// struct dir *dir = dir_open_root();
 
-	struct inode *inode = NULL;
-	if (dir != NULL){
-		dir_lookup(dir, file_name, &inode);
+	if (file_name[0] == '\0'){ 	//마지막이 디렉토리인 경우
+		return file_open(dir_get_inode(dir_path));
 	}
-	dir_close(dir);
+	else{ 								//마지막이 파일인 경우
+		struct dir *dir = dir_reopen(dir_path);
+		struct inode *inode = NULL;
+		if (dir != NULL){
+			dir_lookup(dir, file_name, &inode);
+		}
+		dir_close(dir);
 
-	return file_open(inode);
+		return file_open(inode);
+	}
 }
 
 /* Deletes the file named NAME.
@@ -168,14 +173,6 @@ struct dir* parse_path (char *path_name, char *file_name){
 	char *path = malloc(strlen(path_name) + 1);
 	strlcpy(path, path_name, strlen(path_name) + 1);
 
-	// if (strstr(path, "/") == NULL){
-	// 	strlcpy(file_name, path, strlen(path) + 1);
-	// 	dir_close(dir);
-	// 	dir = dir_reopen(thread_current()->cwd);
-
-	// 	return dir;
-	// }
-
 	if(path[0] == '/'){
 		//원래는 close후 다시 열어줌 (이유가 불분명해서 삭제)
 	}
@@ -183,16 +180,9 @@ struct dir* parse_path (char *path_name, char *file_name){
 		dir_close(dir);
 		dir = dir_reopen(thread_current()->cwd);
 	}
-	// if(path[1] == NULL){
-	// 	dir_close(dir);
-	// 	strlcpy(file_name, ".", 2);
-	// 	return dir;
-	// }
-
 	token = strtok_r(path, "/", &save_ptr);
 	next_token = strtok_r(NULL, "/", &save_ptr);
 
-	
 	while(next_token != NULL){
 		struct inode *inode = NULL;
 		if(!dir_lookup(dir, token, &inode)){
@@ -213,7 +203,6 @@ struct dir* parse_path (char *path_name, char *file_name){
 		next_token = strtok_r(NULL, "/", &save_ptr);
 		/*walking done!*/
 	}
-	
 	if (token == NULL){ //예외처리
 		dir_close(dir);
 		return NULL;
@@ -234,8 +223,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 		}
 		else{//마지막이 파일인 경우
 			strlcpy(file_name, token, strlen(token) + 1);
-			// dir_close(dir);
-			// return NULL;
+
 		}
 	}
 	free(path);
@@ -243,6 +231,7 @@ struct dir* parse_path (char *path_name, char *file_name){
 }
 
 bool filesys_create_dir(const char *name){
+
 	
 	cluster_t inode_cluster = fat_create_chain(0);
 	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
@@ -253,7 +242,7 @@ bool filesys_create_dir(const char *name){
 		return false;
 
 	struct dir *dir = dir_reopen(dir_path);
-
+	
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
 	
 	bool success = (dir != NULL && inode_create(inode_sector, 0, 1) && dir_add(dir, file_name, inode_sector));
