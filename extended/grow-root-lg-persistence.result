@@ -1,0 +1,110 @@
+FAIL
+Extracted file system contents are not correct.
+file12 is missing from the file system.
+file13 is missing from the file system.
+file14 is missing from the file system.
+file15 is missing from the file system.
+file16 is missing from the file system.
+file17 is missing from the file system.
+file18 is missing from the file system.
+file19 is missing from the file system.
+file20 is missing from the file system.
+file21 is missing from the file system.
+file22 is missing from the file system.
+file23 is missing from the file system.
+file24 is missing from the file system.
+file25 is missing from the file system.
+file26 is missing from the file system.
+file27 is missing from the file system.
+file28 is missing from the file system.
+file29 is missing from the file system.
+file30 is missing from the file system.
+file31 is missing from the file system.
+file32 is missing from the file system.
+file33 is missing from the file system.
+file34 is missing from the file system.
+file35 is missing from the file system.
+file36 is missing from the file system.
+file37 is missing from the file system.
+file38 is missing from the file system.
+file39 is missing from the file system.
+file40 is missing from the file system.
+file41 is missing from the file system.
+file42 is missing from the file system.
+file43 is missing from the file system.
+file44 is missing from the file system.
+file45 is missing from the file system.
+file46 is missing from the file system.
+file47 is missing from the file system.
+file48 is missing from the file system.
+file49 is missing from the file system.
+
+Actual contents of file system:
+file0: 512-byte file
+file1: 512-byte file
+file10: 512-byte file
+file11: 512-byte file
+file2: 512-byte file
+file3: 512-byte file
+file4: 512-byte file
+file5: 512-byte file
+file6: 512-byte file
+file7: 512-byte file
+file8: 512-byte file
+file9: 512-byte file
+grow-root-lg: 54376-byte file
+tar: 58880-byte file
+
+Expected contents of file system:
+file0: 512-byte file
+file1: 512-byte file
+file10: 512-byte file
+file11: 512-byte file
+file12: 512-byte file
+file13: 512-byte file
+file14: 512-byte file
+file15: 512-byte file
+file16: 512-byte file
+file17: 512-byte file
+file18: 512-byte file
+file19: 512-byte file
+file2: 512-byte file
+file20: 512-byte file
+file21: 512-byte file
+file22: 512-byte file
+file23: 512-byte file
+file24: 512-byte file
+file25: 512-byte file
+file26: 512-byte file
+file27: 512-byte file
+file28: 512-byte file
+file29: 512-byte file
+file3: 512-byte file
+file30: 512-byte file
+file31: 512-byte file
+file32: 512-byte file
+file33: 512-byte file
+file34: 512-byte file
+file35: 512-byte file
+file36: 512-byte file
+file37: 512-byte file
+file38: 512-byte file
+file39: 512-byte file
+file4: 512-byte file
+file40: 512-byte file
+file41: 512-byte file
+file42: 512-byte file
+file43: 512-byte file
+file44: 512-byte file
+file45: 512-byte file
+file46: 512-byte file
+file47: 512-byte file
+file48: 512-byte file
+file49: 512-byte file
+file5: 512-byte file
+file6: 512-byte file
+file7: 512-byte file
+file8: 512-byte file
+file9: 512-byte file
+grow-root-lg: 54376-byte file
+tar: 58880-byte file

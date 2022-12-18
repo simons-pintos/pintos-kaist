@@ -1,0 +1,33 @@
+Kernel command line: -q -f put dir-mk-tree put tar run dir-mk-tree
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  157081600 loops/s.
+hd0:0: detected 353 sector (176 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 4,032 sector (1 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 228 sector (114 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+hd1:1: detected 8,064 sector (3 MB) disk, model "QEMU HARDDISK", serial "QM00004"
+Formatting file system...done.
+Boot complete.
+Putting 'dir-mk-tree' into the file system...
+Putting 'tar' into the file system...
+Executing 'dir-mk-tree':
+(dir-mk-tree) begin
+(dir-mk-tree) creating /0/0/0/0 through /3/2/2/3...
+(dir-mk-tree) open "/0/2/0/3"
+(dir-mk-tree) close "/0/2/0/3"
+(dir-mk-tree) end
+dir-mk-tree: exit(0)
+Execution of 'dir-mk-tree' complete.
+Timer: 334 ticks
+Thread: 30 idle ticks, 34 kernel ticks, 270 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 9648 reads, 1596 writes
+hd1:0: 228 reads, 0 writes
+hd1:1: 0 reads, 0 writes
+Console: 1126 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

@@ -1,0 +1,48 @@
+Kernel command line: -q -f put symlink-file put tar run symlink-file
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  157081600 loops/s.
+hd0:0: detected 353 sector (176 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 4,032 sector (1 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 229 sector (114 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+hd1:1: detected 8,064 sector (3 MB) disk, model "QEMU HARDDISK", serial "QM00004"
+Formatting file system...done.
+Boot complete.
+Putting 'symlink-file' into the file system...
+Putting 'tar' into the file system...
+Executing 'symlink-file':
+(symlink-file) begin
+(symlink-file) create "a"
+(symlink-file) create "b"
+(symlink-file) create symlink "link_a"
+(symlink-file) create symlink "link_b"
+(symlink-file) create symlink "link_c"
+(symlink-file) open "link_a"
+(symlink-file) open "link_b"
+(symlink-file) open "link_c"
+(symlink-file) write "link_a" and "link_b" alternately
+(symlink-file) close "link_a"
+(symlink-file) close "link_b"
+(symlink-file) close "link_c"
+(symlink-file) open "a" for verification
+(symlink-file) verified contents of "a"
+(symlink-file) close "a"
+(symlink-file) open "b" for verification
+(symlink-file) verified contents of "b"
+(symlink-file) close "b"
+(symlink-file) end
+symlink-file: exit(0)
+Execution of 'symlink-file' complete.
+Timer: 180 ticks
+Thread: 30 idle ticks, 37 kernel ticks, 113 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 9477 reads, 1144 writes
+hd1:0: 229 reads, 0 writes
+hd1:1: 0 reads, 0 writes
+Console: 1634 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...

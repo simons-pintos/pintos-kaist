@@ -1,0 +1,50 @@
+FAIL
+Extracted file system contents are not correct.
+file12 is missing from the file system.
+file13 is missing from the file system.
+file14 is missing from the file system.
+file15 is missing from the file system.
+file16 is missing from the file system.
+file17 is missing from the file system.
+file18 is missing from the file system.
+file19 is missing from the file system.
+
+Actual contents of file system:
+file0: 512-byte file
+file1: 512-byte file
+file10: 512-byte file
+file11: 512-byte file
+file2: 512-byte file
+file3: 512-byte file
+file4: 512-byte file
+file5: 512-byte file
+file6: 512-byte file
+file7: 512-byte file
+file8: 512-byte file
+file9: 512-byte file
+grow-root-sm: 54376-byte file
+tar: 58880-byte file
+
+Expected contents of file system:
+file0: 512-byte file
+file1: 512-byte file
+file10: 512-byte file
+file11: 512-byte file
+file12: 512-byte file
+file13: 512-byte file
+file14: 512-byte file
+file15: 512-byte file
+file16: 512-byte file
+file17: 512-byte file
+file18: 512-byte file
+file19: 512-byte file
+file2: 512-byte file
+file3: 512-byte file
+file4: 512-byte file
+file5: 512-byte file
+file6: 512-byte file
+file7: 512-byte file
+file8: 512-byte file
+file9: 512-byte file
+grow-root-sm: 54376-byte file
+tar: 58880-byte file
