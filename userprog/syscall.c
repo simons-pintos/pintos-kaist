@@ -447,12 +447,14 @@ int write(int fd, const void *buffer, unsigned size)
 		write_result = size;
 	}
 	else
-	{
+	{	
+		if (inode_is_dir( f->inode))	// 디렉토리는 쓸 수 없다
+			return -1;
+
 		lock_acquire(&file_lock);
 		write_result = file_write(f, buffer, size);
 		lock_release(&file_lock);
 	}
-
 	return write_result;
 }
 
