@@ -42,8 +42,8 @@
    - up or "V": increment the value (and wake up one waiting
    thread, if any). */
 void sema_init(struct semaphore *sema, unsigned value)
-{						  //세마포어 이닛해줌
-	ASSERT(sema != NULL); //세마포어는 널이 아니어야됨
+{						  // 세마포어 이닛해줌
+	ASSERT(sema != NULL); // 세마포어는 널이 아니어야됨
 
 	sema->value = value;
 	list_init(&sema->waiters);
@@ -196,6 +196,7 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
+	old_level = intr_disable();
 	if (!thread_mlfqs)
 	{
 		if (lock->holder != NULL)
@@ -214,6 +215,7 @@ void lock_acquire(struct lock *lock)
 		thread_current()->wait_on_lock = NULL;
 
 	lock->holder = thread_current();
+	intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false

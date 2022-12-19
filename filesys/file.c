@@ -9,6 +9,11 @@
 struct file *
 file_open(struct inode *inode)
 {
+	if (inode == NULL)
+	{
+		return NULL;
+	}
+
 	struct file *file = calloc(1, sizeof *file);
 	if (inode != NULL && file != NULL)
 	{
@@ -24,6 +29,7 @@ file_open(struct inode *inode)
 		free(file);
 		return NULL;
 	}
+	
 }
 
 /* Opens and returns a new file for the same inode as FILE.

@@ -31,7 +31,7 @@ typedef int tid_t;
 
 #define NESTED_DEPTH 8
 
-#define FDT_LIMIT (1 << 9) * 3
+#define FDT_LIMIT (1 << 9)
 
 /* A kernel thread or user process.
  *
@@ -133,6 +133,11 @@ struct thread
 
 	struct file *run_file;
 
+	/**************** project 3: virtual memory *******************/
+	uintptr_t user_rsp;
+
+	struct list mmap_list;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
@@ -141,6 +146,8 @@ struct thread
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
 #endif
+	/**************** project 4: file system *******************/
+	struct dir *cwd; /* Current working directory */
 
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */

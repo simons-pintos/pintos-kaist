@@ -3,6 +3,14 @@
 
 #include "threads/thread.h"
 
+struct file_info
+{
+    struct file *file;
+    off_t ofs;
+    uint32_t page_read_bytes;
+    uint32_t page_zero_bytes;
+};
+
 int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
 

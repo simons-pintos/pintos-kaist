@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "fixed_point.h"
+#include "filesys/directory.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -128,7 +129,7 @@ void thread_sleep(int64_t ticks)
 
 void test_max_priority(void)
 {
-	if (!list_empty(&ready_list))
+	if (!intr_context() && !list_empty(&ready_list))
 	{
 		struct thread *ready_max_t = list_entry(list_begin(&ready_list), struct thread, elem);
 		if (ready_max_t->priority > thread_current()->priority)
@@ -206,6 +207,9 @@ void thread_init(void)
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid();
+
+	/* Init the file system */
+	initial_thread->cwd = NULL;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -286,6 +290,9 @@ tid_t thread_create(const char *name, int priority,
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 
+	if(thread_current()->cwd != NULL)
+		t->cwd = dir_reopen(thread_current()->cwd);
+
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t)kernel_thread;
@@ -308,7 +315,7 @@ tid_t thread_create(const char *name, int priority,
 
 	해결 방법은 못 찾음
 	 */
-	t->fdt = palloc_get_multiple(PAL_ZERO, 3);
+	t->fdt = palloc_get_page(PAL_ZERO);
 	if (t->fdt == NULL)
 		return TID_ERROR;
 
@@ -456,7 +463,8 @@ void donate_priority(void)
 	int depth = 1;
 	while (depth < NESTED_DEPTH && temp_t->wait_on_lock != NULL)
 	{
-		temp_t = temp_t->wait_on_lock->holder;
+		if (temp_t->wait_on_lock->holder > 0x100)
+			temp_t = temp_t->wait_on_lock->holder;
 
 		if (temp_t->priority < thread_current()->priority)
 			temp_t->priority = thread_current()->priority;
@@ -704,6 +712,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	sema_init(&t->wait, 0);
 	sema_init(&t->fork, 0);
 	sema_init(&t->exit, 0);
+
+	/* project 3: virtual memory */
+	list_init(&t->mmap_list);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

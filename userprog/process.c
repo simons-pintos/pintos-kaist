@@ -19,6 +19,10 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+
+// 편의상
+#define VM
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -57,27 +61,27 @@ int process_add_file(struct file *f)
 {
 	struct thread *curr = thread_current();
 
-	while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
-		curr->fd_idx++;
-
-	if (curr->fd_idx >= FDT_LIMIT)
-		return -1;
-
-	curr->fdt[curr->fd_idx] = f;
-	return curr->fd_idx;
-
-	// int fd = 2;
-	// while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
-	// 	fd++;
-
-	// if (fd >= FDT_LIMIT)
-	// 	return -1;
-
-	// curr->fdt[fd] = f;
-	// if (curr->fd_idx == fd)
+	// while (curr->fd_idx < FDT_LIMIT && curr->fdt[curr->fd_idx])
 	// 	curr->fd_idx++;
 
-	// return fd;
+	// if (curr->fd_idx >= FDT_LIMIT)
+	// 	return -1;
+
+	// curr->fdt[curr->fd_idx] = f;
+	// return curr->fd_idx;
+
+	int fd = 2;
+	while (curr->fdt[fd] != NULL && fd < FDT_LIMIT)
+		fd++;
+
+	if (fd >= FDT_LIMIT)
+		return -1;
+
+	curr->fdt[fd] = f;
+	if (curr->fd_idx == fd)
+		curr->fd_idx++;
+
+	return fd;
 }
 
 /*
@@ -259,12 +263,6 @@ __do_fork(void *aux)
 		goto error;
 #endif
 
-	/* TODO: Your code goes here.
-	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
-	 * TODO:       in include/filesys/file.h. Note that parent should not return
-	 * TODO:       from the fork() until this function successfully duplicates
-	 * TODO:       the resources of parent.*/
-
 	if (parent->fd_idx >= FDT_LIMIT)
 		goto error;
 
@@ -319,11 +317,11 @@ __do_fork(void *aux)
 
 	current->fd_idx = parent->fd_idx;
 
-	// fork에서 load가 다끝났으므로 부모 process를 다시 wakeup
-	sema_up(&current->fork);
-
 	// 만들어진 자식 process는 fork()에 대한 return 값을 0으로 받고 시작한다
 	if_.R.rax = 0;
+
+	// fork에서 load가 다끝났으므로 부모 process를 다시 wakeup
+	sema_up(&current->fork);
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
@@ -369,6 +367,8 @@ void argument_stack(int argc, char **argv, struct intr_frame *_if)
 	// rdi(첫번째 인자 register)와 rsi(두번째 인자 register)에 argc와 argv 삽입
 	_if->R.rdi = argc;
 	_if->R.rsi = _if->rsp + 8;
+
+	thread_current()->user_rsp = _if->rsp;
 }
 
 /* Switch the current execution context to the f_name.
@@ -388,6 +388,8 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
+
+	supplemental_page_table_init(&thread_current()->spt.table);
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
@@ -463,12 +465,14 @@ void process_exit(void)
 		close(i);
 
 	// palloc으로 memory를 할당 받는 fdt를 free한다
-	palloc_free_multiple(curr->fdt, 3);
+	palloc_free_page(curr->fdt);
 
 	process_cleanup();
 
 	// wait을 하고 있는 부모 process를 wakeup
 	sema_up(&thread_current()->wait);
+
+	dir_close(curr->cwd);
 
 	// 부모 process가 삭제 작업을 마치기 전까지 sleep
 	sema_down(&thread_current()->exit);
@@ -587,6 +591,7 @@ load(const char *file_name, struct intr_frame *if_)
 	struct file *file = NULL;
 	off_t file_ofs;
 	bool success = false;
+	bool file_succ;
 	int i;
 
 	char *save_ptr, *token;
@@ -604,7 +609,10 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	/* Open executable file. */
+	lock_acquire(&file_lock);
 	file = filesys_open(argv[0]);
+	lock_release(&file_lock);
+
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", argv[0]);
@@ -633,12 +641,13 @@ load(const char *file_name, struct intr_frame *if_)
 
 		if (file_ofs < 0 || file_ofs > file_length(file))
 			goto done;
-		file_seek(file, file_ofs);
 
+		file_seek(file, file_ofs);
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 
 		file_ofs += sizeof phdr;
+
 		switch (phdr.p_type)
 		{
 		case PT_NULL:
@@ -660,6 +669,15 @@ load(const char *file_name, struct intr_frame *if_)
 				uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
 				uint64_t page_offset = phdr.p_vaddr & PGMASK;
 				uint32_t read_bytes, zero_bytes;
+
+				// printf("[%d]phdr.p_flags: %d\n", i, phdr.p_flags);
+				// printf("[%d]phdr.p_filesz: %x\n", i, phdr.p_filesz);
+				// printf("[%d]phdr.p_memsz: %x\n", i, phdr.p_memsz);
+				// printf("[%d]file_page: %p\n", i, file_page);
+				// printf("[%d]mem_page: %p\n", i, mem_page);
+				// printf("[%d]page_offset: %p\n", i, page_offset);
+				// printf("\n");
+
 				if (phdr.p_filesz > 0)
 				{
 					/* Normal segment.
@@ -674,6 +692,10 @@ load(const char *file_name, struct intr_frame *if_)
 					read_bytes = 0;
 					zero_bytes = ROUND_UP(page_offset + phdr.p_memsz, PGSIZE);
 				}
+
+				// printf("[%d]read_bytes: %x\n", i, read_bytes);
+				// printf("[%d]zero_bytes: %x\n\n", i, zero_bytes);
+
 				if (!load_segment(file, file_page, (void *)mem_page,
 								  read_bytes, zero_bytes, writable))
 					goto done;
@@ -695,6 +717,7 @@ load(const char *file_name, struct intr_frame *if_)
 	user stack에 argument를 쌓는다
 	%rdi와 %rsi에 argc, argv를 각각 삽입
 	*/
+
 	argument_stack(argc, argv, if_);
 
 	success = true;
@@ -859,13 +882,36 @@ install_page(void *upage, void *kpage, bool writable)
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
-
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
+	// aux로 전달 받은 file data
+	struct file_info *file_info = (struct file_info *)aux;
+
+	struct file *file = file_info->file;
+	off_t ofs = file_info->ofs;
+	int page_read_bytes = file_info->page_read_bytes;
+	int page_zero_bytes = file_info->page_zero_bytes;
+
+	// load해야할 부분으로 file ofs 변경
+	file_seek(file, ofs);
+
+	int temp;
+	// laod segment
+	if ((temp = file_read(file, page->frame->kva, page_read_bytes)) != page_read_bytes)
+	{
+		free(file_info);
+		return false;
+	}
+
+	// setup zero bytes space
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -890,6 +936,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT(pg_ofs(upage) == 0);
 	ASSERT(ofs % PGSIZE == 0);
 
+	// read_bytes와 zero_bytes가 모두 0일 때 = 현재 laod segment에 모두 page 할당을 했을 때
 	while (read_bytes > 0 || zero_bytes > 0)
 	{
 		/* Do calculate how to fill this page.
@@ -898,16 +945,32 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
-		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
-											writable, lazy_load_segment, aux))
+		/*
+		TODO: Set up aux to pass information to the lazy_load_segment.
+		aux를 통해 file data 전달을 위해 만든 struct file_info
+		*/
+		struct file_info *file_info = (struct file_info *)malloc(sizeof(struct file_info));
+
+		file_info->file = file;
+		file_info->ofs = ofs;
+		file_info->page_read_bytes = page_read_bytes;
+		file_info->page_zero_bytes = page_zero_bytes;
+
+		/*
+		해당 virtual memory(=upage)에 struct page를 할당해줌
+		load 되기 전에는 uninit page
+
+		page fault로 pysical memory로 load될 때 할당될 때 입력 받은 page type으로 변환하고
+		lazy_load_segment 함수를 실행시켜서 upload함
+		*/
+		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, file_info))
 			return false;
 
 		/* Advance. */
-		read_bytes -= page_read_bytes;
-		zero_bytes -= page_zero_bytes;
-		upage += PGSIZE;
+		read_bytes -= page_read_bytes; // 남은 read_bytes 갱신
+		zero_bytes -= page_zero_bytes; // 남은 zero_bytes 갱신
+		upage += PGSIZE;			   // virtual address를 옮겨서 다음 page space를 가리키게 함
+		ofs += PGSIZE;				   // 다음 page에 mapping시킬 file 위치 갱신
 	}
 	return true;
 }
@@ -916,7 +979,13 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(struct intr_frame *if_)
 {
-	bool success = false;
+	struct thread *curr = thread_current();
+
+	/*
+	stack은 위에서 아래로 커진다
+	stack의 시작 위치는 USER_STACK
+	PGSIZE만큼 빼서 page space 확보 -> 해당 page 시작 virtual address = stack_botton
+	*/
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
@@ -924,6 +993,17 @@ setup_stack(struct intr_frame *if_)
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
 
-	return success;
+	// 확보한 page space에 struct page 할당
+	if (!vm_alloc_page_with_initializer(VM_ANON, stack_bottom, true, NULL, NULL))
+		return false;
+
+	// page를 pysical memory에 바로 올림 -> 바로 argument들을 stack에 쌓아야하기 때문에 lazy load할 필요 없음
+	if (!vm_claim_page(stack_bottom))
+		return false;
+
+	// stack pointer 설정
+	if_->rsp = USER_STACK;
+
+	return true;
 }
 #endif /* VM */

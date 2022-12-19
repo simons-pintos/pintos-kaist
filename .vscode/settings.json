@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.html": "html",
         "random.h": "c",
         "process.h": "c",
         "intr-stubs.h": "c",
@@ -24,6 +25,18 @@
         "malloc.h": "c",
         "filesys.h": "c",
         "syscall-nr.h": "c",
-        "syn-read.h": "c"
+        "syn-read.h": "c",
+        "inspect.h": "c",
+        "vm.h": "c",
+        "uninit.h": "c",
+        "hash.h": "c",
+        "mmu.h": "c",
+        "anon.h": "c",
+        "main.h": "c",
+        "disk.h": "c",
+        "bitmap.h": "c",
+        "off_t.h": "c",
+        "directory.h": "c",
+        "string.h": "c"
     }
 }

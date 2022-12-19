@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/loader.h"
@@ -11,6 +12,9 @@
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "vm/vm.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -27,13 +31,12 @@ void syscall_handler(struct intr_frame *);
 #define MSR_STAR 0xc0000081			/* Segment selector msr */
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+#define READDIR_MAX_LEN 14
 
 #define STDIN 1	 // 표준 입력
 #define STDOUT 2 // 표준 출력
 
 // readers-writers를 위한 semaphore와 cnt
-struct semaphore mutex, wrt;
-int read_cnt;
 
 void halt(void);
 void exit(int status);
@@ -50,13 +53,18 @@ void seek(int fd, unsigned pos);
 unsigned tell(int fd);
 void close(int fd);
 
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap(void *addr);
+bool isdir(int fd);
+bool chdir (const char *dir);
+bool mkdir (const char *dir);
+bool readdir (int fd, char name[READDIR_MAX_LEN + 1]);
+
 int dup2(int oldfd, int newfd);
 
 void syscall_init(void)
 {
-	sema_init(&mutex, 1);
-	sema_init(&wrt, 1);
-	read_cnt = 0;
+	lock_init(&file_lock);
 
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 							((uint64_t)SEL_KCSEG) << 32);
@@ -76,18 +84,40 @@ address의 유효성 검사
 3. 할당 받은 VM의 address인가?
 유효하지 않으면 thread 종료
 */
-void check_address(uint64_t addr)
+struct page *check_address(uint64_t addr)
 {
-	if (is_kernel_vaddr(addr) || addr == NULL || pml4_get_page(thread_current()->pml4, addr) == NULL)
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		exit(-1);
+
+	return spt_find_page(&thread_current()->spt, addr);
+}
+
+void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool to_write)
+{
+	uintptr_t start_page = pg_round_down(buffer);
+	uintptr_t end_page = pg_round_down(buffer + size - 1);
+
+	if (buffer <= USER_STACK && buffer >= rsp)
+		return;
+
+	for (; start_page <= end_page; start_page += PGSIZE)
+	{
+		struct page *page = check_address(start_page);
+		if (page == NULL)
+			exit(-1);
+
+		if (to_write == true && page->writable == false)
+			exit(-1);
+	}
 }
 
 /*
 The main system call interface
 user mode로 돌아갈 때 사용할 if를 syscall_handler의 인자로 넣어줌
 */
-void syscall_handler(struct intr_frame *f UNUSED)
+void syscall_handler(struct intr_frame *f)
 {
+	/* Projects 2 and later. */
 	// SYS_HALT,		/* Halt the operating system. */
 	// SYS_EXIT,		/* Terminate this process. */
 	// SYS_FORK,		/* Clone current process. */
@@ -103,7 +133,23 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	// SYS_TELL,		/* Report current position in a file. */
 	// SYS_CLOSE,		/* Close a file. */
 
+	/* Project 3 and optionally project 4. */
+	// SYS_MMAP,		/* Map a file into memory. */
+	// SYS_MUNMAP,		/* Remove a memory mapping. */
+
+	/* Extra for Project 2 */
 	// SYS_DUP2			/* Duplicate the file descriptor */
+
+	/* Project 4 only. */
+	//SYS_CHDIR         /* Change the current directory. */
+	//SYS_MKDIR         /* Create a directory. */
+	//SYS_READDIR       /* Reads a directory entry. */
+	//SYS_ISDIR         /* Tests if a fd represents a directory. */
+	//SYS_INUMBER       /* Returns the inode number for a fd. */
+	//SYS_SYMLINK       /* Returns the inode number for a fd. */
+
+
+	thread_current()->user_rsp = f->rsp;
 
 	switch (f->R.rax)
 	{
@@ -148,7 +194,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: const char *file
 		check_address(f->R.rdi);
 
-		remove(f->R.rdi);
+		f->R.rax = remove(f->R.rdi);
 		break;
 
 	case SYS_OPEN:
@@ -167,7 +213,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: int fd
 		// argv[1]: void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -176,7 +222,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		// argv[0]: int fd
 		// argv[1]: const void *buffer
 		// argv[2]: unsigned size
-		check_address(f->R.rsi);
+		check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
@@ -197,10 +243,55 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		close(f->R.rdi);
 		break;
 
+	case SYS_MMAP:
+		// argv[0]: void *addr
+		// argv[1]: size_t length
+		// argv[2]: int writable
+		// argv[3]: int fd
+		// argv[4]: off_t offset
+		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+		break;
+
+	case SYS_MUNMAP:
+		// argv[0]: void *addr
+		check_address(f->R.rdi);
+
+		munmap(f->R.rdi);
+		break;
+
 	case SYS_DUP2:
 		// argv[0]: int oldfd
 		// argv[1]: int newfd
 		f->R.rax = dup2(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_ISDIR:
+		// argv[0]: int fd
+		f->R.rax = isdir(f->R.rdi);
+		break;
+
+	case SYS_CHDIR:
+		// argv[0]: const char *dir
+		check_address(f->R.rdi);
+		f->R.rax = chdir(f->R.rdi);
+		break;
+
+	case SYS_MKDIR:
+		// argv[0]: const char *dir
+		check_address(f->R.rdi);
+		f->R.rax = mkdir(f->R.rdi);
+		break;
+
+	case SYS_READDIR:
+		// argv[0]: int fd
+		// argv[1]: char *name
+		check_address(f->R.rsi);
+		f->R.rax = readdir(f->R.rdi, f->R.rsi);
+		break;
+
+	case SYS_INUMBER:
+		// argv[0]: int fd
+		f->R.rax = inumber(f->R.rdi);
 		break;
 	}
 }
@@ -261,8 +352,15 @@ initial_size를 가진 file 생성
 만들지만 open하지는 않는다
 */
 bool create(const char *file, unsigned initial_size)
-{
-	return filesys_create(file, initial_size);
+{	
+	if (strlen(file) == 0 || strlen(file) > 14)
+		return false;
+
+	lock_acquire(&file_lock);
+	bool succ = filesys_create(file, initial_size);
+	lock_release(&file_lock);
+
+	return succ;
 }
 
 /* 해당 file 삭제 */
@@ -273,10 +371,13 @@ bool remove(const char *file)
 
 /* 입력 받은 file을 열어서 file descripter 생성 */
 int open(const char *file)
-{
-	sema_down(&wrt);
+{	
+	if (strlen(file) == 0)
+		return -1;
+
+	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
-	sema_up(&wrt);
+	lock_release(&file_lock);
 
 	if (f == NULL)
 		return -1;
@@ -303,8 +404,6 @@ int filesize(int fd)
 /* fd를 size만큼 buffer에 읽어온다 */
 int read(int fd, void *buffer, unsigned size)
 {
-	check_address(buffer + size - 1); // buffer 끝 주소도 유효성 검사
-
 	struct file *f = process_get_file(fd);
 	if (f == NULL || f == STDOUT)
 		return -1;
@@ -331,19 +430,9 @@ int read(int fd, void *buffer, unsigned size)
 	}
 	else
 	{
-		sema_down(&mutex);
-		read_cnt++;
-		if (read_cnt == 1)
-			sema_down(&wrt);
-		sema_up(&mutex);
-
+		lock_acquire(&file_lock);
 		read_result = file_read(f, buffer, size);
-
-		sema_down(&mutex);
-		read_cnt--;
-		if (read_cnt == 0)
-			sema_up(&wrt);
-		sema_up(&mutex);
+		lock_release(&file_lock);
 	}
 
 	return read_result;
@@ -358,19 +447,21 @@ int write(int fd, const void *buffer, unsigned size)
 
 	int write_result;
 
-	//표준 출력
+	// 표준 출력
 	if (f == STDOUT)
 	{
 		putbuf(buffer, size);
 		write_result = size;
 	}
 	else
-	{
-		sema_down(&wrt);
-		write_result = file_write(f, buffer, size);
-		sema_up(&wrt);
-	}
+	{	
+		if (inode_is_dir( f->inode))	// 디렉토리는 쓸 수 없다
+			return -1;
 
+		lock_acquire(&file_lock);
+		write_result = file_write(f, buffer, size);
+		lock_release(&file_lock);
+	}
 	return write_result;
 }
 
@@ -463,4 +554,78 @@ int dup2(int oldfd, int newfd)
 	close(newfd);
 	curr->fdt[newfd] = f;
 	return newfd;
+}
+
+/**************** project 3: virtual memory *******************/
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+	struct file *file = process_get_file(fd);
+	if (file == NULL || file == STDIN || file == STDOUT)
+		return NULL;
+
+	if (length == 0 || filesize(fd) == 0)
+		return NULL;
+
+	if (is_kernel_vaddr(addr) || is_kernel_vaddr(addr + length) || pg_ofs(addr))
+		return NULL;
+
+	if (addr == NULL || addr + length == NULL)
+		return false;
+
+	if (spt_find_page(&thread_current()->spt, addr) || offset % PGSIZE)
+		return false;
+
+	return do_mmap(addr, length, writable, file, offset);
+}
+
+void munmap(void *addr)
+{
+	do_munmap(addr);
+}
+
+bool isdir (int fd) {
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	return inode_is_dir(f->inode);
+}
+
+bool chdir (const char *dir){
+	return filesys_change_dir(dir);
+}
+
+bool mkdir (const char *dir){
+	if(strlen(dir) == 0)
+		return false;
+	return filesys_create_dir(dir);
+}
+
+bool readdir (int fd, char name[READDIR_MAX_LEN + 1]){
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return false;
+
+	if (!inode_is_dir(f->inode))
+		return false;
+
+	struct dir *dir = f;
+
+	bool success;
+	// while(name == "." || name == ".."){
+	success = dir_readdir(dir, name);
+	// }
+	
+	// printf("===DEBUG SUCCESS : %d\n", success);
+
+
+	return success;
+}
+
+int inumber (int fd){
+	struct file *f = process_get_file(fd);
+	if (f == NULL)
+		return -1;
+
+	return inode_get_inumber(f->inode);
 }
