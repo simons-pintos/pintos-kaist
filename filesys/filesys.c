@@ -283,7 +283,7 @@ fail:
 
 bool filesys_create_dir(const char *name)
 {
-	bool success;
+	bool success = false;
 
 	char file_name[NAME_MAX + 1];
 	struct dir *dir = parse_path(name, file_name);
@@ -297,12 +297,14 @@ bool filesys_create_dir(const char *name)
 	struct dir *sub_dir = NULL;
 
 	bool succ_create = dir_create(inode_sector, 16);
-	bool succ_add = dir_add(dir, file_name, inode_sector);
-	bool succ_lookup = dir_lookup(dir, file_name, &sub_dir_inode);
-	bool succ_create_curr_dir = dir_add(sub_dir = dir_open(sub_dir_inode), ".", inode_sector);
-	bool succ_create_prev_dir = dir_add(sub_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+	if (dir_add(dir, file_name, inode_sector))
+	{
+		bool succ_lookup = dir_lookup(dir, file_name, &sub_dir_inode);
+		bool succ_create_curr_dir = dir_add(sub_dir = dir_open(sub_dir_inode), ".", inode_sector);
+		bool succ_create_prev_dir = dir_add(sub_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+		success = (succ_lookup && succ_create_curr_dir && succ_create_prev_dir);
+	}
 
-	success = (succ_create && succ_add && succ_lookup && succ_create_curr_dir && succ_create_prev_dir);
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
 
