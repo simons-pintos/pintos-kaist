@@ -613,9 +613,12 @@ bool readdir (int fd, char name[READDIR_MAX_LEN + 1]){
 
 	bool success;
 	// while(name == "." || name == ".."){
-		success = dir_readdir(dir, name);
+	success = dir_readdir(dir, name);
 	// }
 	
+	// printf("===DEBUG SUCCESS : %d\n", success);
+
+
 	return success;
 }
 
