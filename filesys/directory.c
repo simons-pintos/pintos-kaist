@@ -129,6 +129,9 @@ bool dir_lookup(const struct dir *dir, const char *name,
 	else
 		*inode = NULL;
 
+	if(!strcmp(name, "."))
+		*inode = dir_get_inode(dir);
+
 	return *inode != NULL;
 }
 
@@ -225,6 +228,9 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1])
 	while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e)
 	{
 		dir->pos += sizeof e;
+		if (!strcmp(e.name, ".") || !strcmp(e.name, ".."))
+			continue;
+		
 		if (e.in_use)
 		{
 			strlcpy(name, e.name, NAME_MAX + 1);
@@ -260,7 +266,8 @@ bool dir_is_empty(struct dir *dir)
 	while (dir_readdir(dir, name_in_dir))
 		count += 1;
 	
-	if (count == 2)
+	// printf("===CNT : %d\n", count);
+	if (count == 0)
 		return true;
 	
 	return false;
