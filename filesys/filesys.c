@@ -205,7 +205,7 @@ bool filesys_remove(const char *name)
 		success = dir != NULL && dir_remove(dir, file_name);
 		dir_close(dir);
 	}
-	//dir_close(dir_path); 를 해주어야 할듯?(추후고민)
+
 	return success;
 }
 
@@ -354,27 +354,4 @@ bool filesys_change_dir(const char *dir){
 	thread_current()->cwd = dir_path;
 	return true;
 
-	// printf("===Start of listing.===\n");
-	// char name_in_dir[15];
-	// while (dir_readdir(dir_path, name_in_dir))
-	// 	printf("%s\n", name_in_dir);
-	// printf("===End of listing.===\n");
-
-	// if (dir_path == NULL)
-	// 	return false;
-
-	// struct inode *inode = NULL;
-	// dir_lookup(dir_path, file_name, &inode);
-
-	// if (inode == NULL || inode_is_removed(inode))
-	// 	return false;
-
-	// if (inode_is_dir(inode)){
-	// 	dir_close(dir_path);
-	// 	thread_current()->cwd = dir_open(inode);
-	// 	return true;
-	// }
-	// else{
-	// 	return false;
-	// }
 }
