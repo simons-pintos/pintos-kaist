@@ -612,9 +612,9 @@ bool readdir (int fd, char name[READDIR_MAX_LEN + 1]){
 	struct dir *dir = f;
 
 	bool success;
-	while(name == "." || name == ".."){
+	// while(name == "." || name == ".."){
 		success = dir_readdir(dir, name);
-	}
+	// }
 	
 	return success;
 }
