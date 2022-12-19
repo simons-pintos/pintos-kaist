@@ -246,8 +246,8 @@ void inode_close(struct inode *inode)
 			fat_remove_chain(clst, 0);
 		}
 
-		/* file을 닫을 때 disk_inode의 변경사항을 disk에 write */
-		disk_write(filesys_disk, inode->sector, &inode->data);
+		// /* file을 닫을 때 disk_inode의 변경사항을 disk에 write */
+		// disk_write(filesys_disk, inode->sector, &inode->data);
 
 		free(inode);
 	}
@@ -391,7 +391,10 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
 
 	/* file growth 됬을 때 inode의 length 갱신 */
 	if (inode_length(inode) < origin_offset + bytes_written)
+	{
 		inode->data.length = origin_offset + bytes_written;
+		disk_write(filesys_disk, inode->sector, &inode->data);
+	}
 
 	return bytes_written;
 }
