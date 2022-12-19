@@ -65,21 +65,50 @@ bool filesys_create(const char *name, off_t initial_size)
 	/* struct disk_inode를 저장할 새로운 cluster 할당 */
 	cluster_t inode_cluster = fat_create_chain(0);
 	disk_sector_t inode_sector = cluster_to_sector(inode_cluster);
+	bool success;
 	char file_name[128];
+	file_name[0] = '\0';
+
 
 	/* Root Directory open */
 	struct dir *dir_path = parse_path (name, file_name);
+	
+	if(strcmp(file_name, "") == 0){
+		success = false;
+	}
+	
+	
 	if (dir_path == NULL)
 		return false;
+
+	// printf("===[DEBUG] name : %s\n", name);
+	// printf("===[DEBUG] file_name : %s\n", file_name);
+	
+	// printf("===Start of listing.===\n");
+	// char name_in_dir[15];
+	// while (dir_readdir(dir_path, name_in_dir))
+	// 	printf("%s\n", name_in_dir);
+	// printf("===End of listing.===\n");
+
+
 
 	struct dir *dir = dir_reopen(dir_path);
 	// struct dir *dir = dir_open_root();
 
+	
+	// printf("===[DEBUG] success00 : %d\n", success);
+	if(inode_is_removed(dir_get_inode(thread_current()->cwd)))
+		success = false;
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	bool success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, file_name, inode_sector) && !inode_is_removed(dir_get_inode(thread_current()->cwd)));
+	else
+		success = (dir != NULL && inode_create(inode_sector, initial_size, 0) && dir_add(dir, file_name, inode_sector));
+	// printf("===[DEBUG] success11 : %d\n", success);
+
+	// printf("===[DEBUG] success22 : %d\n", success);
+
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
-
+	
 	dir_close(dir);
 
 	return success;
@@ -293,7 +322,6 @@ bool filesys_create_dir(const char *name){
 	struct dir *dir = dir_reopen(dir_path);
 	
 	/* 할당 받은 cluster에 inode를 만들고 directory에 file 추가 */
-	
 	bool success = (dir != NULL && inode_create(inode_sector, 0, 1) && dir_add(dir, file_name, inode_sector));
 	if (!success && inode_cluster != 0)
 		fat_remove_chain(inode_cluster, 0);
